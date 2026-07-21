@@ -1,343 +1,172 @@
-# Playwright API Automation Framework
+# QA Analyst Agent
 
-This is an API automation framework built with [Playwright](https://playwright.dev/) and TypeScript, designed to test RESTful APIs efficiently.
+An end-to-end QA analyst subagent for this repo. Give it a Jira Epic or Story key and it plans, seeds, automates, executes, and reports on testing for that Epic/Story. The same workflow is defined **once per platform** so it works the same way regardless of which agent runner you use:
 
-## Overview
+| Platform | Agent definitions |
+|---|---|
+| **Claude Code** | [.claude/agents/qa-analyst.md](.claude/agents/qa-analyst.md), [qa-test-designer.md](.claude/agents/qa-test-designer.md), [api-automation-architect.md](.claude/agents/api-automation-architect.md), [ui-automation-architect.md](.claude/agents/ui-automation-architect.md) |
+| **Cursor** | [.cursor/rules/qa-analyst.mdc](.cursor/rules/qa-analyst.mdc), [qa-test-designer.mdc](.cursor/rules/qa-test-designer.mdc), [api-automation-architect.mdc](.cursor/rules/api-automation-architect.mdc), [ui-automation-architect.mdc](.cursor/rules/ui-automation-architect.mdc) |
+| **GitHub Copilot** | [.github/agents/qa-analyst.agent.md](.github/agents/qa-analyst.agent.md), [qa-test-designer.agent.md](.github/agents/qa-test-designer.agent.md), [api-automation-architect.agent.md](.github/agents/api-automation-architect.agent.md), [ui-automation-architect.agent.md](.github/agents/ui-automation-architect.agent.md) |
+| **Codex CLI** | [.codex/agents/qa-analyst.toml](.codex/agents/qa-analyst.toml), [qa-test-designer.toml](.codex/agents/qa-test-designer.toml), [api-automation-architect.toml](.codex/agents/api-automation-architect.toml), [ui-automation-architect.toml](.codex/agents/ui-automation-architect.toml) |
 
-This framework provides a robust structure for testing API endpoints with:
-- **Async/Await Support**: Native async/await syntax for cleaner test code
-- **TypeScript Support**: Full type safety and better IDE support
-- **Multiple Browser Engines**: Run tests on Chromium, Firefox, and WebKit
-- **Parallel Execution**: Built-in parallel test execution
-- **Comprehensive Reporting**: HTML reports with detailed test results
-- **Request Context**: Reusable API request context for efficient testing
-- **Custom Assertions**: Template-based response validation
+All four files per platform describe the same workflow — keep them in sync by hand if you edit one; there's no build step that generates one from another. See [Platform support](#platform-support) below for how each one is invoked and any platform-specific setup (including MCP server restarts).
 
-## Project Structure
+It owns test-plan authoring, planning orchestration, the deployment gate, seeding, test execution, result analysis, and reporting itself, but **delegates test case design** (step 1) and **script authoring** (step 4) to specialized sibling agents rather than reimplementing their depth:
+
+- **qa-test-designer** — QA test case design agent. Applies the full design-technique checklist (happy path, negative, boundary value, edge case, integration, non-functional) with AC-coverage traceability, and produces `qa/test-cases.md`.
+- **api-automation-architect** — API wrapper-class + JSON-fixture + template-assertion pattern (`spec/api/`, `libs/`, `test_data/`).
+- **ui-automation-architect** — Page Object Model, Data Factory, Builder, Facade, and Strategy patterns for browser-driven specs.
+
+On Claude Code, qa-analyst invokes these via the Agent tool. Cursor and GitHub Copilot have no equivalent subagent-invocation tool, so their qa-analyst definitions delegate by handing off to the named sibling rule/agent directly (`@qa-test-designer`, `@api-automation-architect`, `@ui-automation-architect` in Cursor; the named agent in Copilot) — same division of responsibility, different mechanics. Either way, each pattern's/discipline's rules live in one place instead of being duplicated across agent definitions. For step 1, qa-analyst writes `test-plan.md` itself, pulls Figma frames itself (qa-test-designer doesn't), and folds qa-test-designer's `qa/test-cases.md` output into its own `qa-artifacts/<KEY>/test-cases.md`.
+
+**There's no "gap-fill" exception to delegation.** qa-analyst never writes or edits files under `spec/api/`, `libs/`, `test_data/` (API) or `spec/ui/`, `libs/pages/`, `facades/`, `factories/`, `strategies/` (UI) itself — every new or changed test case in those paths goes through an actual Agent tool call to `api-automation-architect` or `ui-automation-architect`, even ones that look like a small follow-up to something already scaffolded. `script-changes.md`'s Author column should only ever say `qa-analyst` for a step 5 one-line fix to an existing automation defect — never for new test coverage. (This was previously a real gap: a run's log showed spec files authored directly by qa-analyst as a "gap-fill," which is exactly the pattern this rule now blocks.)
+
+## Test pyramid
+
+qa-analyst steers every Epic/Story's test-case mix toward **60-70% API, 20-30% UI, 5-10% manual-only E2E**. Backend-verifiable behavior goes to the API layer (including endpoints discovered only via network-call capture, see step 3), the UI layer is reserved for what can only be checked by rendering/interacting, and a small slice of high-value cross-system journeys stay manual by design — never automated. The achieved mix is reported in `test-plan.md` and the final report; if an Epic genuinely can't hit this ratio (e.g. UI-only, no API surface), the agent says so instead of forcing test cases into the wrong layer.
+
+**Every automated test — API or UI — is tagged `@smoke`, `@sanity`, and/or `@regression`.** Tags are applied at authoring time (step 4) via Playwright's native tag syntax (`test('...', { tag: ['@smoke', '@regression'] }, ...)`) so runs can select by tier with `--grep`: `@smoke` is the minimal fast-fail set proving the build isn't broken, `@sanity` targets just this Epic/Story's changes, `@regression` is the full impacted set run every time. An automated test with no tag is treated as an incomplete delegation, same severity as a missing script — `script-changes.md`'s Tags column is checked for this on every run.
+
+**Network-discovered API endpoints must be acted on the same run they're found, not deferred.** Test cases get typed in step 1, before network capture happens in step 3 — so step 3 includes a mandatory reclassification pass: any endpoint captured during seeding that verifies a currently UI-only test case gets a real `Type: API` test case added right then, and step 4 must actually produce its `api-automation-architect` script this run. "Documented for future API test expansion" is treated as a failed run, not a valid outcome — every skipped endpoint needs its own specific reason (e.g. unsafe to exercise against shared demo data), not a blanket deferral.
+
+## What it does
+
+Given a Jira Epic/Story key (e.g. `PROJ-1234`), it runs seven steps in order:
+
+1. **Test plan and test cases** — resolves which run folder this is (first run or a re-run, see Artifacts below), pulls the Epic and every linked Story, Task, and Sub-task from Jira, plus linked Figma frames; writes `test-plan.md` itself (including the test-pyramid mix), and delegates test case design to `qa-test-designer` (targeting that mix), folding its output into `test-cases.md`.
+2. **Deployment gate + Figma parity check** — confirms the target environment is up and the Epic/Story's changes are actually deployed there; if Figma frames were linked, also compares the live app against them and logs discrepancies. If the env is down or changes are missing, it **stops and reports a blocker** instead of continuing.
+3. **Seed data + network capture** — ensures API and UI seed data is scripted (not manual), extending existing seed scripts where possible; all seeding runs **headless**, for both API and UI — no visible browser. While seeding, captures every distinct network call the app makes into `network-capture.md`, then immediately cross-checks captured endpoints against `test-cases.md` and adds/converts `Type: API` test cases for anything a UI-only case could equally be verified through — this happens before moving on, not left as a note for later.
+4. **Automation scripts** — delegates to `api-automation-architect` (using captured network shapes for API test cases, including endpoints not explicitly named in the ticket) and `ui-automation-architect` (see above) to create/update Playwright API and UI scripts, following this repo's existing conventions (or any `.cursor/rules` / Copilot instructions present, which take precedence) rather than inventing new patterns. Any `Type: API` case step 3 just added gets its script written in this same step — not deferred, and always via a real delegation to `api-automation-architect`, never authored directly. Every test is tagged `@smoke`/`@sanity`/`@regression` at this point, API and UI alike.
+5. **Test execution** — runs **only** the tests impacted by the Epic/Story, always **headless** (no `--headed`, for API and UI alike) — never the full suite or unrelated pre-existing specs. Uses the smoke/sanity/regression tags to scope runs (`--grep @smoke` as a fast-fail gate before the full run, `--grep @regression` for the full impacted set), in addition to path-based impacted-scope filtering. On a re-run, the **full impacted scope is executed again from scratch**, not just what changed since last time. Failing tests get **at most one retry**; it does not loop trying fixes indefinitely — if a failure survives one retry and one considered fix attempt, it's carried into analysis as a possible genuine issue rather than debugged forever. Manual-only scenarios are walked live via MCP (also headless) where feasible and otherwise listed as requiring manual execution.
+6. **Report analysis** — parses automation results and evidence (screenshots/videos/traces), distinguishes automation defects from genuine behavior deviations from the Epic/Story spec, and folds in any Figma-vs-app discrepancies from step 2.
+7. **Reporting** — writes both a detailed `report.md` and a short, high-level `execution-summary.md` into this run's folder, updates `latest.md`, and drafts Jira-formatted bug reports for genuine failures. Both report files are re-read from disk to confirm they were actually persisted before the run is declared complete — a chat summary alone doesn't count as this step being done. **It does not file real Jira tickets on its own** — it asks for confirmation first, and re-runs each confirmed draft's failing test once more to make sure it still reproduces before actually filing it.
+
+## Setup
+
+1. Copy the secrets template and fill in real values:
+   ```bash
+   cp .env.example .env
+   ```
+   Required variables: `JIRA_API_TOKEN`, `FIGMA_API_TOKEN`, `GIT_TOKEN`, `DEV_APP_CREDENTIALS`, `QA_APP_CREDENTIALS`. `.env` is git-ignored — never commit it.
+
+2. Edit [config/qa-agent.config.json](config/qa-agent.config.json) with your actual settings:
+   - `jira.baseUrl` / `jira.projectKey` — your Jira site and project
+   - `figma.teamId` / `figma.defaultFileId` — if you want a default Figma file
+   - `environments.<env>.appUrl` / `apiBaseUrl` — per-environment URLs used for the deployment gate and test runs
+   - `artifacts.rootDir` — where generated artifacts are saved (default `qa-artifacts`)
+
+3. Nothing else to install for Jira/Figma — the agent calls them directly over their REST APIs using the tokens above.
+
+4. For UI work, the agent uses the **Playwright CLI** and the **Playwright MCP server** — make sure both are available:
+   - Playwright CLI: already part of this repo's `devDependencies`; runs via `npx playwright ...`.
+   - Playwright MCP server: must be connected in your agent runner — Claude Code (`claude mcp add playwright`), Cursor (Settings → MCP or `.cursor/mcp.json`), GitHub Copilot (already declared per-agent in `.github/agents/*.agent.md`), or Codex CLI (already declared in `.codex/config.toml`) — so browser navigate/snapshot/click tools are available to the agent. See [Platform support](#platform-support) for exact steps and restart requirements per platform.
+
+## Platform support
+
+The workflow, artifacts, and rules are identical across platforms — only how you invoke the agent and how the Playwright MCP server is wired up differs.
+
+### Claude Code
+
+- Definitions: `.claude/agents/*.md`, picked up automatically from the repo root.
+- Invoke: `Run the qa-analyst agent for PROJ-1234`, or explicitly via the Agent tool with `subagent_type: qa-analyst`. qa-analyst delegates to `qa-test-designer`/`api-automation-architect`/`ui-automation-architect` through real Agent tool calls.
+- MCP servers: configure the Playwright MCP server with `claude mcp add playwright -- npx -y @playwright/mcp@latest --headless` (and similarly for `filesystem` if used). Run `claude mcp list` to confirm it's connected.
+- **After adding/editing an MCP server or an agent `.md` file**, restart the Claude Code session (exit and relaunch, or `/mcp` to reconnect servers without a full restart) — agent definitions and MCP server configs are loaded at session start and are not hot-reloaded mid-session.
+
+### Cursor
+
+- Definitions: `.cursor/rules/*.mdc`. Since these rules have no `globs` for `qa-analyst`/`qa-test-designer` (and are `alwaysApply: false`), they're **manually invoked**, not auto-attached — mention them explicitly in chat (`@qa-analyst`) to bring the rule into context, then give it the Epic/Story key.
+- `ui-automation-architect`/`api-automation-architect` do declare `globs`, so Cursor may also auto-suggest them when you're editing matching files, in addition to manual `@`-mention.
+- MCP servers: add the Playwright MCP server in Cursor's Settings → MCP (or `.cursor/mcp.json`), pointing at `npx -y @playwright/mcp@latest --headless`.
+- **After adding/editing `.cursor/rules/*.mdc` or `.cursor/mcp.json`**, reload the Cursor window (`Developer: Reload Window` from the command palette, or fully restart Cursor) — rule and MCP changes are not picked up by an already-open chat session.
+
+### GitHub Copilot
+
+- Definitions: `.github/agents/*.agent.md` (VS Code Copilot custom agents).
+- Invoke: select the `qa-analyst` custom agent from Copilot Chat's agent picker (or `@qa-analyst` if your Copilot version supports agent mentions), then give it the Epic/Story key.
+- MCP servers: each `.agent.md` file already declares its own `playwright`/`filesystem` MCP servers under `mcp-servers:` in the frontmatter, so no separate global MCP config is required — Copilot starts them per-agent.
+- **After editing a `.agent.md` file**, reload the VS Code window (`Developer: Reload Window`) or restart the Copilot Chat extension host — custom agent definitions are read once when the extension activates.
+
+### Codex CLI
+
+- Definitions: `.codex/agents/*.toml`; shared MCP servers (`filesystem`, `playwright`) are declared once in `.codex/config.toml`, not per-agent.
+- Invoke: run Codex CLI and select/reference the `qa-analyst` agent, then give it the Epic/Story key.
+- **After editing `.codex/config.toml` or any `.codex/agents/*.toml` file**, restart the Codex CLI process — both are read at startup.
+
+## Usage
+
+Invoke it with an Epic or Story key:
+
+> Run the qa-analyst agent for PROJ-1234
+
+Or, in Claude Code, via the Agent tool with `subagent_type: qa-analyst`; in Cursor via `@qa-analyst`; in GitHub Copilot via the agent picker; in Codex CLI by selecting the `qa-analyst` agent. See [Platform support](#platform-support) above for the exact mechanics per platform.
+
+If `.env` is missing or a required token is empty, the agent stops and reports that as a blocker before making any Jira/Figma calls — it will not fabricate data.
+
+## Artifacts
+
+Everything the agent produces for Epic/Story `<KEY>` is saved under `qa-artifacts/<KEY>/` (checked into git so it's shareable), organized **per run** — every invocation against a key gets its own numbered, immutable folder:
 
 ```
-spec/
-├── api/                          # End-to-end tests
-│   ├── users.spec.ts             # Users API tests
-│   └── dotesthere-api.spec.ts    # DoTestHere API tests
-libs/                            # Reusable helper libraries
-│   ├── users.ts                  # Users API wrapper class
-│   └── utils/                    # Shared helper utilities
-│       ├── requests.ts           # HTTP request wrapper
-│       ├── assertions.ts         # Custom assertion helpers
-│       ├── apiTracker.ts         # API call tracking
-│       └── common.ts             # Common utility functions
-test_data/                       # Test data and fixtures
-│   ├── users.json
-│   ├── dotesthere-users.json
-│   └── hosts.json
-global-setup.ts                   # Global test setup
-playwright.config.ts              # Playwright configuration
-package.json                      # Dependencies and scripts
-tsconfig.json                     # TypeScript configuration
+qa-artifacts/<KEY>/
+  latest.md          ← current run number + run-history table
+  run-01/             ← first invocation
+    test-plan.md
+    test-cases.md
+    network-capture.md
+    script-changes.md
+    report.md
+    execution-summary.md
+    jira-bug-drafts.md
+  run-02/             ← a later re-run
+    ...same files...
+    delta.md          ← what changed vs. run-01, and why this run happened
 ```
 
-## Getting Started
+| File | Produced in step | Contents |
+|---|---|---|
+| `latest.md` | — | Pointer to the current run + a history table (run #, date, trigger, go/no-go) |
+| `test-plan.md` | 1 | Scope, environments, entry/exit criteria, risk areas, test-pyramid mix — authored by qa-analyst itself |
+| `test-cases.md` | 1 | Per-issue test case tables (steps, expected result, automated Y/N, priority) — merged from qa-test-designer's `qa/test-cases.md`, plus Figma-derived UI notes |
+| `delta.md` | 1 (re-runs only) | What changed in Jira/Figma/test-cases/scripts/results vs. the previous run, with a reference to that run's folder |
+| `network-capture.md` | 3 | Distinct API endpoints observed during UI seeding/test execution (method, path, status, request/response shape) |
+| `script-changes.md` | 4 | Every spec/wrapper/page-object/fixture file created or modified, with why |
+| `report.md` | 7 | Detailed report — results, deviations, failure evidence, Figma parity findings |
+| `execution-summary.md` | 7 | Short, high-level pass/fail + go/no-go summary, readable in under a minute |
+| `jira-bug-drafts.md` | 7 | Draft Jira bug reports for genuine failures, pending your approval |
 
-### Prerequisites
+**Re-running the agent for the same key never overwrites a previous run.** It creates the next `run-N/` folder, writes `delta.md` comparing it to the prior run, and re-executes the **full impacted scope** for the Epic/Story from scratch — not just what changed. A run folder is only edited in place if you resume an interrupted invocation of that same run; a new invocation always gets a new folder.
 
-- Node.js (v16 or higher)
-- npm or yarn package manager
+## Filing Jira bugs
 
-### Installation
+Step 7 only **drafts** bugs in `jira-bug-drafts.md`. The agent will show you the drafts and ask which ones to file. **Before actually filing a confirmed draft, it re-runs that test/scenario once more** to make sure the failure still reproduces right now — a single confirmation re-run, separate from step 5's retry policy, not another debug loop. If it now passes, the draft is marked as no-longer-reproducing instead of being filed. Only for drafts that still fail does it call the Jira REST API (`POST /rest/api/3/issue`) to create the real tickets, and it reports back the created issue keys/links.
 
-1. Install dependencies:
-```bash
-npm install
-```
+## Playwright CLI and MCP server usage
 
-2. Verify Playwright browsers are installed:
-```bash
-npx playwright install
-```
+The agent uses two distinct Playwright surfaces, deliberately kept separate:
 
-## Running Tests
+- **Playwright CLI** (`npx playwright ...`, via Bash) — for anything script-authoring and test-execution related: `codegen` to derive selectors when scaffolding a new UI spec, `test --list` to confirm scope, `test`/`test --grep "..."` to run impacted specs headless (API and UI alike), and `show-report`/`test-results` to analyze results.
+- **Playwright MCP server** (`mcp__playwright__*` tools) — for live, interactive browser work: confirming the deployment gate actually rendered the new UI, comparing the live app against linked Figma frames, walking UI seed flows that have no API shortcut while capturing the network calls they trigger (`browser_network_requests`), inspecting live DOM/selectors before writing a spec, running feasible manual-only scenarios as observed (not automated) checks, and reproducing failures for root-cause analysis (`browser_snapshot`, `browser_console_messages`, `browser_network_requests`).
 
-### Run all tests
-```bash
-npm test
-```
+If the Playwright MCP server isn't connected in your agent runner, the agent will still complete Jira/Figma-based planning and CLI-driven test execution, but will flag any step that needed live browser interaction (deployment gate's UI check, UI seeding, live selector discovery, manual-scenario walkthroughs, failure repro) as blocked/skipped rather than fabricating the result.
 
-### Run tests in headed mode (with UI)
-```bash
-npm run test:headed
-```
+### Always headless — no visible browser, for any test type
 
-### Run tests in debug mode
-```bash
-npm run test:debug
-```
+Seeding, automated execution, and manual/MCP-driven walkthroughs all run **headless**, for both API and UI. No step opens a visible browser window.
 
-### Run tests in UI mode (Playwright Inspector)
-```bash
-npm run test:ui
-```
+- Both API (`spec/api/...`) and UI (`spec/ui/...`) runs execute with no `--headed` flag.
+- If a Playwright MCP server session launches its own browser for a manual/live walkthrough, it's started/connected in headless mode too.
+- If `playwright.config.ts` defaults any project the agent touches to `headed`, that's flagged as inconsistent with this rule rather than relied on.
 
-### View test reports
-```bash
-npm run test:report
-```
+## Notes
 
-## Configuration
-
-### Playwright Config (`playwright.config.ts`)
-
-- **Test Directory**: `./spec`
-- **Base URL**: `https://jsonplaceholder.typicode.com`
-- **Browsers**: Chromium, Firefox, WebKit
-- **Timeout**: 30 seconds per test
-- **Retries**: 0 (2 on CI)
-- **Workers**: Parallel execution enabled
-
-### Environment Configuration
-
-Configure API endpoints in the test setup:
-
-```typescript
-const context = await playwright.request.newContext({
-  baseURL: 'https://dotesthere.com'
-});
-```
-
-## Key Features
-
-### 1. **Request Wrapper** (`libs/utils/requests.ts`)
-
-Simplified HTTP request methods:
-- `sendGetRequest()` - GET requests
-- `sendPostRequest()` - POST requests
-- `sendPutRequest()` - PUT requests
-- `sendPatchRequest()` - PATCH requests
-- `sendDeleteRequest()` - DELETE requests
-
-### 2. **Users API Wrapper** (`libs/users.ts`)
-
-Class-based wrapper for Users API endpoints:
-```typescript
-const users = new Users(context, baseUrl);
-await users.getUsersList(page, limit);
-await users.getUserDotesthere(id);
-await users.postUserDotesthere(userData);
-```
-
-### 3. **Custom Assertions** (`libs/utils/assertions.ts`)
-
-Template-based response validation:
-- `verifyResponseCode()` - Check status code
-- `verifyResponseTemplate()` - Validate response structure
-- `verifyResponseMatchExpected()` - Match response with template
-
-Special template values:
-- `"skip"` - Skip validation for this field
-- `"should_not_be_null"` - Value must exist and not be null
-- `"only_chars"` - Value must contain only alphabetic characters
-- `"match_regex:/<pattern>/"` - Value must match regex pattern
-
-### 4. **API Tracking** (`libs/utils/apiTracker.ts`)
-
-Track API calls for debugging:
-```typescript
-import { lastApiCall } from '../../libs/utils/apiTracker';
-
-// Access last API call
-console.log(lastApiCall?.method);
-console.log(lastApiCall?.url);
-console.log(lastApiCall?.response);
-```
-
-## Test Examples
-
-### Basic GET Request
-```typescript
-test('Should retrieve users list', async () => {
-  const response = await users.getUsersList(1, 10);
-  expect(response.status()).toBe(200);
-  const body = await response.json();
-  expect(body.data).toBeInstanceOf(Array);
-});
-```
-
-### POST Request with Response Validation
-```typescript
-test('Create a new user', async () => {
-  const newUser = { name: 'John', job: 'Developer' };
-  const response = await users.postUserDotesthere(newUser);
-  
-  const expectedResponse = { 
-    name: newUser.name, 
-    job: newUser.job, 
-    id: 'should_not_be_null' 
-  };
-  await verifyResponseTemplate(response, expectedResponse, 201);
-});
-```
-
-### Template-Based Validation
-```typescript
-test('Verify response structure', async () => {
-  const response = await users.getUsersList(1, 10);
-  
-  const template = {
-    page: 1,
-    total: 'should_not_be_null',
-    data: [{
-      id: 'should_not_be_null',
-      email: 'match_regex:/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/',
-      first_name: 'only_chars'
-    }]
-  };
-  
-  await verifyResponseTemplate(response, template, 200);
-});
-```
-
-## Migration from Cypress
-
-This framework was migrated from Cypress to Playwright. Key differences:
-
-| Feature | Cypress | Playwright |
-|---------|---------|-----------|
-| **Syntax** | Promise chains with `.then()` | Async/await |
-| **Test Framework** | Mocha | Playwright Test |
-| **API Testing** | `cy.request()` | `APIRequestContext.fetch()` |
-| **Assertions** | Chai `.to.eq()` | Playwright `expect()` |
-| **Configuration** | `cypress.config.ts` | `playwright.config.ts` |
-| **Execution** | Sequential by default | Parallel by default |
-
-### Syntax Changes
-
-**Cypress (Before)**:
-```typescript
-it('test name', () => {
-  users.getUsersList(1, 10).then((response) => {
-    expect(response.status).to.eq(200);
-  });
-});
-```
-
-**Playwright (After)**:
-```typescript
-test('test name', async () => {
-  const response = await users.getUsersList(1, 10);
-  expect(response.status()).toBe(200);
-});
-```
-
-## Debugging
-
-### Enable Playwright Inspector
-```bash
-npm run test:debug
-```
-
-### View Trace Files
-Playwright creates trace files for failed tests in `.playwright/trace/`.
-
-### Print Debug Info
-```typescript
-import { test } from '@playwright/test';
-
-test('debug test', async ({ page, request }) => {
-  const response = await request.get('/api/users');
-  console.log('Status:', response.status());
-  console.log('Body:', await response.json());
-});
-```
-
-## Performance
-
-- **Parallel Execution**: Tests run in parallel by default (configurable workers)
-- **Reusable Request Context**: Single context for all tests in a test suite
-- **Efficient Resource Usage**: Lightweight compared to Cypress
-- **Fast Execution**: Average test execution time < 1 second
-
-## Continuous Integration
-
-### GitHub Actions Example
-```yaml
-name: API Tests
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-      - run: npm install
-      - run: npm test
-      - uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: playwright-report
-          path: playwright-report/
-```
-
-## Troubleshooting
-
-### Tests fail with connection refused
-- Verify API endpoint is running and accessible
-- Check baseURL in playwright.config.ts
-- Verify network connectivity
-
-### Timeout errors
-- Increase timeout in playwright.config.ts
-- Check API response times
-- Review network conditions
-
-### Type errors with TypeScript
-- Ensure TypeScript types are installed: `npm install --save-dev @types/node`
-- Run `npx tsc --noEmit` to check for type errors
-
-## AI Agent Usage
-
-This repository includes AI agent guidance files to help Copilot, Cursor, Claude, or other IDE-based agents generate API automation code consistently.
-
-### Files
-- `api-automation-agent.prompt.md` — prompt template for AI assistants
-- `api-automation-agent.instructions.md` — repository-specific conventions and architecture
-
-### How to use
-1. Open `api-automation-agent.prompt.md` and copy the prompt text.
-2. Paste it into your AI assistant chat or prompt field.
-3. Ask the assistant to generate or modify API automation code, for example:
-   - `Create a new API wrapper and test spec for the bookings endpoint.`
-   - `Add fixtures and a new spec for a payment API.`
-4. Confirm the assistant uses:
-   - `libs/utils/requests.ts` for HTTP methods
-   - `libs/utils/assertions.ts` for validations
-   - JSON fixtures in `test_data/`
-   - wrapper classes in `libs/` and specs in `spec/api/`
-
-### Best practices
-- Prefer fresh, independent test data per test.
-- Avoid shared state unless explicitly required.
-- Use `readTestDataJson()` to load fixtures.
-- Validate responses with `verifyResponseTemplate()` and other assertion helpers.
-
-## Resources
-
-- [Playwright Documentation](https://playwright.dev/)
-- [Playwright Test API](https://playwright.dev/docs/api/class-test)
-- [Playwright Debugging](https://playwright.dev/docs/debug)
-
-## Contributing
-
-When adding new tests:
-1. Follow existing naming conventions
-2. Use the Users API wrapper for API calls
-3. Use template-based assertions
-4. Document test purpose with clear descriptions
-5. Keep tests independent and idempotent
-
-## License
-
-ISC
+- The agent talks to Jira/Figma via their REST APIs directly using the tokens in `.env` — it does not rely on Jira/Figma MCP servers, since those may not be authorized in headless or non-interactive runs.
+- It follows this repo's existing wrapper-class + JSON-fixture + template-assertion conventions for API tests (see the main [README.md](README.md) and [CLAUDE.md](CLAUDE.md)); it does not introduce a different pattern.
+- **It only executes tests impacted by the Epic/Story — never the full suite and never other pre-existing, unrelated specs.**
+- **Every re-run still executes the full impacted scope, not just a diff.** `delta.md` documents what changed since the last run, but execution itself always re-validates every Story/Task under the key.
+- **Retry policy is strict:** a failing test gets at most one retry, plus at most one considered fix-and-retry if the cause looks like an obvious automation defect. Anything that still fails after that is treated as a possible genuine application issue for step 6, not looped on indefinitely — the assumption shifts from "my script is wrong" to "this might be the application."
+- API test coverage isn't limited to what the Jira ticket names explicitly — network calls captured during seeding surface real endpoints (including undocumented ones) that get turned into API tests, which is how the agent pushes toward the 60-70% API slice of the test pyramid.
+- **A captured endpoint with no automation and no specific per-endpoint reason is a bug in the run, not an acceptable gap.** If you see `network-capture.md` describing discovered endpoints as "future work" instead of either a script or a stated reason it wasn't automated, the run didn't follow this rule correctly.
+- **Check `script-changes.md`'s Author column when reviewing a run.** Every API/UI spec, wrapper, or page object should be authored by `api-automation-architect`/`ui-automation-architect`, not `qa-analyst` — `qa-analyst` as author is only valid for a step 5 one-line defect fix to a file that already existed. If new test coverage is attributed to `qa-analyst`, delegation was skipped and the run should be treated as incomplete for that test case.
+- **Check `script-changes.md`'s Tags column too.** Every automated test, API or UI, should show at least one of `@smoke`/`@sanity`/`@regression`. A blank Tags entry means step 4 shipped a test without tagging it — treat that the same as a missing script for that test case.
+- When Figma frames are linked, the agent checks the live app against them during the deployment gate and folds discrepancies into the report — this is best-effort visual/structural comparison via the Playwright MCP server, not a pixel-perfect diff tool.
+- **Runs are immutable history** — re-running an Epic/Story never edits a previous run's folder; it always creates the next `run-N/` and updates `latest.md`.
