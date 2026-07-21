@@ -1,5 +1,8 @@
 // global-setup.ts - Playwright global setup configuration
 import { chromium, FullConfig } from '@playwright/test';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
 
 async function globalSetup(config: FullConfig) {
   // You can add any global setup logic here

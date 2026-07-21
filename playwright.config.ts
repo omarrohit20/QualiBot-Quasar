@@ -1,10 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
+import * as dotenv from 'dotenv';
 
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
  */
-// require('dotenv').config();
+dotenv.config();
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -24,7 +25,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'https://jsonplaceholder.typicode.com',
+    baseURL: 'https://opensource-demo.orangehrmlive.com',
   },
 
   /* Configure projects — Chrome only, no cross-browser fan-out */
@@ -48,7 +49,6 @@ export default defineConfig({
       name: 'pim-ui',
       use: {
         ...devices['Desktop Chrome'],
-        baseURL: 'https://opensource-demo.orangehrmlive.com',
         storageState: 'playwright/.auth/admin.json',
       },
       testMatch: 'spec/ui/pim/**/*.spec.ts',
@@ -60,7 +60,6 @@ export default defineConfig({
       name: 'leave-ui',
       use: {
         ...devices['Desktop Chrome'],
-        baseURL: 'https://opensource-demo.orangehrmlive.com',
         storageState: 'playwright/.auth/admin.json',
       },
       testMatch: 'spec/ui/leave/**/*.spec.ts',
@@ -72,7 +71,6 @@ export default defineConfig({
       name: 'admin-ui',
       use: {
         ...devices['Desktop Chrome'],
-        baseURL: 'https://opensource-demo.orangehrmlive.com',
         storageState: 'playwright/.auth/admin.json',
       },
       testMatch: 'spec/ui/admin/**/*.spec.ts',
@@ -82,4 +80,7 @@ export default defineConfig({
 
   /* Global setup */
   globalSetup: require.resolve('./global-setup.ts'),
+
+  // Each test is given 30 seconds.
+  timeout: 60000
 });
