@@ -1,6 +1,6 @@
-# QA Analyst Agent
+# QualiBot-Quasar : QA Analyst and Architect Agent
 
-An end-to-end QA analyst subagent for this repo. Give it a Jira Epic or Story key and it plans, seeds, automates, executes, and reports on testing for that Epic/Story. The same workflow is defined **once per platform** so it works the same way regardless of which agent runner you use:
+An end-to-end QA analyst and Agent for this repo. Give it a Jira Epic or Story key and it plans, seeds, automates, executes, and reports on testing for that Epic/Story. The same workflow is defined **once per platform** so it works the same way regardless of which agent runner you use:
 
 | Platform | Agent definitions |
 |---|---|
