@@ -11,14 +11,14 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './spec',
-  /* Run tests in files in parallel */
-  fullyParallel: true,
+  /* Run tests sequentially, never in parallel, to avoid shared-session/state collisions on the demo environment. */
+  fullyParallel: false,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  /* Single worker always — sequential execution across all projects/platforms. */
+  workers: 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
@@ -27,24 +27,12 @@ export default defineConfig({
     baseURL: 'https://jsonplaceholder.typicode.com',
   },
 
-  /* Configure projects for major browsers */
+  /* Configure projects — Chrome only, no cross-browser fan-out */
   projects: [
-    // --- API projects (jsonplaceholder.typicode.com) ---
+    // --- API project (jsonplaceholder.typicode.com) ---
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      testMatch: 'spec/api/**/*.spec.ts',
-    },
-
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-      testMatch: 'spec/api/**/*.spec.ts',
-    },
-
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
       testMatch: 'spec/api/**/*.spec.ts',
     },
 
