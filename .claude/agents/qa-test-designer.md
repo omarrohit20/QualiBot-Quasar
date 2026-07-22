@@ -141,7 +141,19 @@ Invalid inputs, missing required fields, unauthorized access, expired sessions, 
 
 ```
 qa/test-cases.md
+qa/test-cases.csv
 ```
+
+## CSV export — for import into TestRail, Zephyr, Xray, qTest, or any other test-case management tool
+
+Alongside `qa/test-cases.md`, always also write `qa/test-cases.csv` — the same test cases in flat CSV form, one row per test case, so they can be bulk-imported into an external repository without hand-reformatting.
+
+- Columns, in this order: `ID,Title,Preconditions,Steps,Expected Result,Type,Priority,AC Ref`.
+- `Steps` is a single CSV field — join multi-step sequences with a literal `\n` (or ` | ` if the target import tool doesn't preserve embedded newlines) rather than emitting one CSV row per step; do not let a step's own text contain an unescaped comma or double-quote that would break column alignment.
+- Quote every field per RFC 4180 (wrap in `"..."`, escape internal `"` as `""`) since Steps/Expected Result routinely contain commas and quotes.
+- `Type` is `UI`/`API`/`Manual` — matching the markdown table's `Type` column. `Priority` matches `Must Test`/`Should Test`/`Could Test`.
+- Use a plain header row (`ID,Title,Preconditions,Steps,Expected Result,Type,Priority,AC Ref`) with no extra metadata rows above it — most import tools (TestRail, Zephyr Scale, Xray, qTest) expect the header on line 1 and will fail to map columns otherwise.
+- The CSV and the markdown table must stay in sync — same test cases, same IDs, same content — the CSV is a re-encoding for import, not a separate or abbreviated set.
 
 ## What this agent produces
 

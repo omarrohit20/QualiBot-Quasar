@@ -14,6 +14,7 @@ For test case design (step 1), you delegate to `qa-test-designer` rather than au
 - If `.env` is missing or a required token is empty, stop and report it as a blocker before doing any Jira/Figma/API calls — do not guess or fabricate data.
 - Read `config/qa-agent.config.json` first, every run, to resolve URLs/paths — never hardcode them.
 - Call Jira/Figma via their REST APIs directly (`curl`/fetch), using `Authorization: Basic base64(email:JIRA_API_TOKEN)` for Jira and `X-Figma-Token: $FIGMA_API_TOKEN` for Figma. Do not use MCP servers for this even if present in the session — they may not be authorized in headless runs.
+- **This repository is self-contained for this workflow — `spec/`, `libs/`, `test_data/`, `playwright.config.ts`, and `qa-artifacts/` all live here, and every path in this workflow (including `config/qa-agent.config.json`'s `artifacts.rootDir`) resolves relative to *this repo's* root, never any other repo.** If the session also has another repository open as an additional working directory (e.g. a similarly-named or sibling automation repo such as `api_automation_playwright_ts`), that is not this workflow's target — do not read, write, or run Playwright commands there. Before running any Bash command or writing any artifact, confirm the working directory/path is inside this repo; if a relative path or a stray `cd` would resolve into a different repo, stop and use this repo's explicit path instead. This has been a real failure mode before: a run wrote `qa-artifacts/` output into `api_automation_playwright_ts` instead of this repo purely because that other repo was also open in the session.
 
 ## Tooling — Playwright CLI and Playwright MCP server
 
@@ -66,6 +67,7 @@ qa-artifacts/<KEY>/
   run-01/
     test-plan.md          ← step 1
     test-cases.md         ← step 1
+    test-cases.csv        ← step 1 (same test cases, CSV, for import into TestRail/Zephyr/Xray/qTest/etc.)
     network-capture.md    ← step 3 (API calls captured during seeding/UI test execution)
     script-changes.md     ← step 4 (log of every spec/wrapper/page-object/fixture file created or modified, with why)
     report.md             ← step 7 (detailed report)
@@ -97,7 +99,7 @@ Delegate test case design to **`qa-test-designer`** (`.Codex/agents/qa-test-desi
 2. For each issue, pull the description, acceptance criteria, and any linked Figma file/frame URLs. Fetch those Figma frames (Figma REST API `GET /v1/files/:key`) to pull UI structure/copy relevant to test design — `qa-test-designer` doesn't fetch Figma itself, so hand it a summary of the relevant frames/UI structure per issue alongside each ticket ID. Keep the fetched frame data around; you need it again in step 2 to check Figma-vs-app parity.
 3. Write `test-plan.md` in this run's folder: scope, in/out of scope, environments, entry/exit criteria, risk areas, the test-pyramid mix (see above), one section per Story/Task summarizing what's being tested and why.
 4. Invoke `qa-test-designer` once per Epic/Story/Task key (it resolves ticket context itself via Jira/Azure DevOps, or accepts the ACs you already fetched if you pass them directly), telling it to target the test-pyramid mix above when assigning `Type`/`Automated`. It produces `qa/test-cases.md`.
-5. Fold its output into this run's `test-cases.md` (one table per Story/Task/Sub-task with columns `ID | Title | Preconditions | Steps | Expected Result | Type (UI/API/Manual) | Automated (Y/N) | Priority`), adding the Figma-derived UI notes qa-test-designer didn't have.
+5. Fold its output into this run's `test-cases.md` (one table per Story/Task/Sub-task with columns `ID | Title | Preconditions | Steps | Expected Result | Type (UI/API/Manual) | Automated (Y/N) | Priority`), adding the Figma-derived UI notes qa-test-designer didn't have. **Also write this run's `test-cases.csv`** — the same merged test cases (all Stories/Tasks/Sub-tasks combined, one flat row per case) in the same RFC-4180-quoted CSV format qa-test-designer used for `qa/test-cases.csv` (`ID,Title,Preconditions,Steps,Expected Result,Type,Priority,AC Ref`, plus a `Jira Key` column since this run spans one or more tickets) — so the whole run's test cases can be bulk-imported into TestRail/Zephyr/Xray/qTest/any other test-case repository in one file, not just read as markdown.
 6. If this is a re-run, diff conceptually against the **previous run's** `test-plan.md`/`test-cases.md` and current Jira/Figma content, and record what changed (added/removed/modified Stories, ACs, test cases) in this run's `delta.md` — but still write this run's `test-plan.md`/`test-cases.md` as complete, self-contained files, not a diff-only patch.
 
 ## Step 2 — Deployment/environment gate + Figma parity check (hard blocker check)

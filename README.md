@@ -114,6 +114,7 @@ qa-artifacts/<KEY>/
   run-01/             ← first invocation
     test-plan.md
     test-cases.md
+    test-cases.csv      ← same test cases in CSV, for import into TestRail/Zephyr/Xray/qTest/etc.
     network-capture.md
     script-changes.md
     report.md
@@ -129,6 +130,7 @@ qa-artifacts/<KEY>/
 | `latest.md` | — | Pointer to the current run + a history table (run #, date, trigger, go/no-go) |
 | `test-plan.md` | 1 | Scope, environments, entry/exit criteria, risk areas, test-pyramid mix — authored by qa-analyst itself |
 | `test-cases.md` | 1 | Per-issue test case tables (steps, expected result, automated Y/N, priority) — merged from qa-test-designer's `qa/test-cases.md`, plus Figma-derived UI notes |
+| `test-cases.csv` | 1 | Same test cases as `test-cases.md`, flattened to CSV (`ID,Title,Preconditions,Steps,Expected Result,Type,Priority,AC Ref,Jira Key`) for bulk import into TestRail, Zephyr, Xray, qTest, or any other test-case repository |
 | `delta.md` | 1 (re-runs only) | What changed in Jira/Figma/test-cases/scripts/results vs. the previous run, with a reference to that run's folder |
 | `network-capture.md` | 3 | Distinct API endpoints observed during UI seeding/test execution (method, path, status, request/response shape) |
 | `script-changes.md` | 4 | Every spec/wrapper/page-object/fixture file created or modified, with why |
