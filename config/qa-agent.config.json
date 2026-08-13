@@ -41,5 +41,34 @@
   "seeding": {
     "apiSeedScriptDir": "libs/seed",
     "uiSeedScriptDir": "spec/seed"
+  },
+  "quality": {
+    "accessibility": {
+      "tool": "axe-core",
+      "fixture": "libs/fixtures/qaFixtures.ts",
+      "scannedTag": "@smoke",
+      "artifactSubdir": "accessibility"
+    },
+    "security": {
+      "tool": "OWASP ZAP",
+      "mode": "passive-proxy",
+      "helper": "libs/utils/zapScan.ts",
+      "scannedTag": "@smoke",
+      "artifactSubdir": "security",
+      "apiUrlEnvVar": "ZAP_API_URL",
+      "proxyUrlEnvVar": "ZAP_PROXY_URL",
+      "apiKeyEnvVar": "ZAP_API_KEY"
+    },
+    "performance": {
+      "tool": "k6",
+      "scriptDir": "spec/performance",
+      "template": "spec/performance/_template.k6.js",
+      "reportGenerator": "scripts/generate-perf-report.js",
+      "artifactSubdir": "performance",
+      "vus": 1,
+      "iterations": 5,
+      "dockerImage": "grafana/k6:latest",
+      "dockerImageEnvVar": "K6_DOCKER_IMAGE"
+    }
   }
 }

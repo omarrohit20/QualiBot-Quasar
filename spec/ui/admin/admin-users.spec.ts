@@ -1,7 +1,7 @@
 // spec: spec/ui/admin/admin-users.spec.ts
 // pattern: Page Object Model
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../../../libs/fixtures/qaFixtures';
 import { AdminUsersPage } from '../../../libs/pages/admin/AdminUsersPage';
 
 test.use({ storageState: 'playwright/.auth/admin.json' });

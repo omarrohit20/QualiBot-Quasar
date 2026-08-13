@@ -8,6 +8,16 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 /**
+ * When RUN_SECURITY_SCAN=true, route UI project traffic through a locally running
+ * OWASP ZAP daemon so its passive scanner can analyze it — reused from the existing
+ * @smoke run, not a separate security test suite. See global-teardown.ts.
+ */
+const zapProxy =
+  process.env.RUN_SECURITY_SCAN === 'true'
+    ? { server: process.env.ZAP_PROXY_URL || 'http://127.0.0.1:8080' }
+    : undefined;
+
+/**
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
@@ -19,7 +29,7 @@ export default defineConfig({
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
   /* Single worker always — sequential execution across all projects/platforms. */
-  workers: 3,
+  workers: 2,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
@@ -33,7 +43,7 @@ export default defineConfig({
     // --- API project (jsonplaceholder.typicode.com) ---
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], proxy: zapProxy },
       testMatch: 'spec/api/**/*.spec.ts',
     },
 
@@ -50,6 +60,7 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         storageState: 'playwright/.auth/admin.json',
+        proxy: zapProxy,
       },
       testMatch: 'spec/ui/pim/**/*.spec.ts',
       dependencies: ['auth-setup'],
@@ -61,6 +72,7 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         storageState: 'playwright/.auth/admin.json',
+        proxy: zapProxy,
       },
       testMatch: 'spec/ui/leave/**/*.spec.ts',
       dependencies: ['auth-setup'],
@@ -72,14 +84,16 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         storageState: 'playwright/.auth/admin.json',
+        proxy: zapProxy,
       },
       testMatch: 'spec/ui/admin/**/*.spec.ts',
       dependencies: ['auth-setup'],
     },
   ],
 
-  /* Global setup */
+  /* Global setup / teardown */
   globalSetup: require.resolve('./global-setup.ts'),
+  globalTeardown: require.resolve('./global-teardown.ts'),
 
   // Each test is given 30 seconds.
   timeout: 60000

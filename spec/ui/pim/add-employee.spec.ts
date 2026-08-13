@@ -1,14 +1,14 @@
 // spec: spec/ui/pim/add-employee.spec.ts
 // pattern: Page Object Model
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../../../libs/fixtures/qaFixtures';
 import { AddEmployeePage } from '../../../libs/pages/pim/AddEmployeePage';
 
 test.use({ storageState: 'playwright/.auth/admin.json' });
 
 test.describe('PIM — Add Employee', () => {
   // TC-027: Add Employee form renders with expected fields and controls
-  test('TC-027: navigate to Add Employee — form fields and Save button are visible', async ({
+  test('TC-027: navigate to Add Employee — form fields and Save button are visible', { tag: ['@smoke', '@sanity', '@regression', '@module:pim', '@KAN-4'] }, async ({
     page,
   }) => {
     const addEmployeePage = new AddEmployeePage(page);
@@ -32,7 +32,7 @@ test.describe('PIM — Add Employee', () => {
   });
 
   // TC-028: Submitting empty First/Last Name shows inline validation messages
-  test('TC-028: click Save with empty First Name and Last Name — validation messages appear', async ({
+  test('TC-028: click Save with empty First Name and Last Name — validation messages appear', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async ({
     page,
   }) => {
     const addEmployeePage = new AddEmployeePage(page);
@@ -57,7 +57,7 @@ test.describe('PIM — Add Employee', () => {
   });
 
   // TC-029: Filling valid First/Last Name and saving redirects to profile page
-  test('TC-029: fill First Name "UIAutoFN" and Last Name "UIAutoLN" — Save redirects to employee profile', async ({
+  test('TC-029: fill First Name "UIAutoFN" and Last Name "UIAutoLN" — Save redirects to employee profile', { tag: ['@smoke', '@sanity', '@regression', '@module:pim', '@KAN-4'] }, async ({
     page,
   }) => {
     const addEmployeePage = new AddEmployeePage(page);

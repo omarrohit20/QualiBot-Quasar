@@ -54,7 +54,7 @@ test.describe('PIM Employees API - OrangeHRM', () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   test.describe('Employee List', () => {
-    test('TC-001: GET list with default params returns 200, non-empty data, meta.total > 0', async () => {
+    test('TC-001: GET list with default params returns 200, non-empty data, meta.total > 0', { tag: ['@smoke', '@sanity', '@regression', '@module:pim', '@KAN-4'] }, async () => {
       const response = await api.listEmployees();
       verifyResponseCode(response, 200);
       const body = await response.json();
@@ -63,7 +63,7 @@ test.describe('PIM Employees API - OrangeHRM', () => {
       expect(body.meta.total).toBeGreaterThan(0);
     });
 
-    test('TC-002: GET list filtered by nameOrId=Ranga returns matching employee', async () => {
+    test('TC-002: GET list filtered by nameOrId=Ranga returns matching employee', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async () => {
       const response = await api.listEmployees({ nameOrId: 'Ranga' });
       verifyResponseCode(response, 200);
       const body = await response.json();
@@ -75,14 +75,14 @@ test.describe('PIM Employees API - OrangeHRM', () => {
       });
     });
 
-    test('TC-003: GET list filtered by nameOrId=0277 returns matching record', async () => {
+    test('TC-003: GET list filtered by nameOrId=0277 returns matching record', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async () => {
       const response = await api.listEmployees({ nameOrId: '0277' });
       verifyResponseCode(response, 200);
       const body = await response.json();
       expect(Array.isArray(body.data)).toBe(true);
     });
 
-    test('TC-007: Pagination offset=0 and offset=50 return non-overlapping first records', async () => {
+    test('TC-007: Pagination offset=0 and offset=50 return non-overlapping first records', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async () => {
       const respAll = await api.listEmployees({ limit: 1 });
       const allBody = await respAll.json();
       if (allBody.meta.total <= 50) {
@@ -101,7 +101,7 @@ test.describe('PIM Employees API - OrangeHRM', () => {
       expect(overlap.length).toBe(0);
     });
 
-    test('TC-008: GET list with nameOrId=ZZZNOMATCH99999 returns 200, empty data, total=0', async () => {
+    test('TC-008: GET list with nameOrId=ZZZNOMATCH99999 returns 200, empty data, total=0', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async () => {
       const response = await api.listEmployees({ nameOrId: 'ZZZNOMATCH99999' });
       verifyResponseCode(response, 200);
       const body = await response.json();
@@ -116,7 +116,7 @@ test.describe('PIM Employees API - OrangeHRM', () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   test.describe('Employee Create', () => {
-    test('TC-009: POST with firstName and lastName returns 200/201 with non-null empNumber', async () => {
+    test('TC-009: POST with firstName and lastName returns 200/201 with non-null empNumber', { tag: ['@smoke', '@sanity', '@regression', '@module:pim', '@KAN-4'] }, async () => {
       const response = await api.createEmployee({ firstName: 'AutoFN', lastName: 'AutoLN' });
       expect([200, 201]).toContain(response.status());
       const body = await response.json();
@@ -124,7 +124,7 @@ test.describe('PIM Employees API - OrangeHRM', () => {
       createdEmpNumbers.push(body.data.empNumber);
     });
 
-    test('TC-010: POST with middleName and custom employeeId returns correct values', async () => {
+    test('TC-010: POST with middleName and custom employeeId returns correct values', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async () => {
       // OrangeHRM employeeId is limited in length; use a short alphanumeric ID
       const payload = { firstName: 'AutoFN2', lastName: 'AutoLN2', middleName: 'Mid', employeeId: `T${Date.now().toString().slice(-6)}` };
       const response = await api.createEmployee(payload);
@@ -136,17 +136,17 @@ test.describe('PIM Employees API - OrangeHRM', () => {
       createdEmpNumbers.push(body.data.empNumber);
     });
 
-    test('TC-011: POST missing firstName returns 422 or 400', async () => {
+    test('TC-011: POST missing firstName returns 422 or 400', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async () => {
       const response = await api.createEmployee({ firstName: '', lastName: 'MissingFN' }, false);
       expect([400, 422]).toContain(response.status());
     });
 
-    test('TC-012: POST missing lastName returns 422 or 400', async () => {
+    test('TC-012: POST missing lastName returns 422 or 400', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async () => {
       const response = await api.createEmployee({ firstName: 'MissingLN', lastName: '' }, false);
       expect([400, 422]).toContain(response.status());
     });
 
-    test('TC-015: POST with special characters in firstName/lastName returns 200/201', async () => {
+    test('TC-015: POST with special characters in firstName/lastName returns 200/201', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async () => {
       const response = await api.createEmployee({ firstName: '@#$%', lastName: '!!!Test' });
       expect([200, 201]).toContain(response.status());
       const body = await response.json();
@@ -154,7 +154,7 @@ test.describe('PIM Employees API - OrangeHRM', () => {
       createdEmpNumbers.push(body.data.empNumber);
     });
 
-    test('TC-016: POST with duplicate employeeId returns 400 or 409', async () => {
+    test('TC-016: POST with duplicate employeeId returns 400 or 409', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async () => {
       // Use a short numeric ID to stay within OrangeHRM employeeId field limits
       const dupId = `D${Date.now().toString().slice(-5)}`;
       // First creation
@@ -174,20 +174,20 @@ test.describe('PIM Employees API - OrangeHRM', () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   test.describe('Employee Read', () => {
-    test('TC-017: GET /api/v2/pim/employees/3 returns 200 with empNumber=3', async () => {
+    test('TC-017: GET /api/v2/pim/employees/3 returns 200 with empNumber=3', { tag: ['@smoke', '@sanity', '@regression', '@module:pim', '@KAN-4'] }, async () => {
       const response = await api.getEmployee(3);
       verifyResponseCode(response, 200);
       const body = await response.json();
       expect(body.data.empNumber).toBe(3);
     });
 
-    test('TC-018: GET /api/v2/pim/employees/9999999 returns 404 or 422', async () => {
+    test('TC-018: GET /api/v2/pim/employees/9999999 returns 404 or 422', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async () => {
       // OrangeHRM returns 422 (not 404) for non-existent employee numbers
       const response = await api.getEmployee(9999999, false);
       expect([404, 422]).toContain(response.status());
     });
 
-    test('TC-033: GET personal-details for empNumber=3 returns 200 with required fields', async () => {
+    test('TC-033: GET personal-details for empNumber=3 returns 200 with required fields', { tag: ['@smoke', '@sanity', '@regression', '@module:pim', '@KAN-4'] }, async () => {
       const response = await api.getEmployeePersonalDetails(3);
       verifyResponseCode(response, 200);
       const body = await response.json();
@@ -204,7 +204,7 @@ test.describe('PIM Employees API - OrangeHRM', () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   test.describe('Employee Update', () => {
-    test('TC-019: PUT personal-details on existing employee, GET to verify update', async () => {
+    test('TC-019: PUT personal-details on existing employee, GET to verify update', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async () => {
       // Use empNumber=3 which is a pre-seeded employee confirmed to exist with full
       // personal-details (TC-017 and TC-033 both verify it). Newly-created employees
       // have no personal-details DB row yet and cause a server 500 on PUT.
@@ -238,7 +238,7 @@ test.describe('PIM Employees API - OrangeHRM', () => {
       await api.updatePersonalDetails(empNumber, restorePayload, false);
     });
 
-    test('TC-020: PUT personal-details with empty firstName returns 400 or 422', async () => {
+    test('TC-020: PUT personal-details with empty firstName returns 400 or 422', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async () => {
       // Create temp employee
       const createResp = await api.createEmployee({ firstName: 'TempTC020', lastName: 'TempLast' });
       expect([200, 201]).toContain(createResp.status());
@@ -272,7 +272,7 @@ test.describe('PIM Employees API - OrangeHRM', () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   test.describe('Employee Delete', () => {
-    test('TC-021: Create employee, delete it, verify 404 on GET', async () => {
+    test('TC-021: Create employee, delete it, verify 404 on GET', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async () => {
       const createResp = await api.createEmployee({ firstName: 'DeleteMe', lastName: 'TC021' });
       expect([200, 201]).toContain(createResp.status());
       const createBody = await createResp.json();
@@ -286,7 +286,7 @@ test.describe('PIM Employees API - OrangeHRM', () => {
       expect([404, 422]).toContain(getResp.status());
     });
 
-    test('TC-022: Create 3 employees, bulk delete, verify all 404', async () => {
+    test('TC-022: Create 3 employees, bulk delete, verify all 404', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async () => {
       const empNums: number[] = [];
       for (let i = 0; i < 3; i++) {
         const createResp = await api.createEmployee({ firstName: `BulkDel${i}`, lastName: 'TC022' });
@@ -305,7 +305,7 @@ test.describe('PIM Employees API - OrangeHRM', () => {
       }
     });
 
-    test('TC-023: DELETE with non-existent id 9999999 returns 400 or 404', async () => {
+    test('TC-023: DELETE with non-existent id 9999999 returns 400 or 404', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async () => {
       const response = await api.deleteEmployees([9999999], false);
       expect([400, 404]).toContain(response.status());
     });
@@ -316,7 +316,7 @@ test.describe('PIM Employees API - OrangeHRM', () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   test.describe('Reference Data', () => {
-    test('TC-024: GET job-titles?limit=0 returns 200, non-empty data, each item has id and title', async () => {
+    test('TC-024: GET job-titles?limit=0 returns 200, non-empty data, each item has id and title', { tag: ['@smoke', '@sanity', '@regression', '@module:pim', '@KAN-4'] }, async () => {
       const response = await api.getJobTitles();
       verifyResponseCode(response, 200);
       const body = await response.json();
@@ -329,7 +329,7 @@ test.describe('PIM Employees API - OrangeHRM', () => {
       });
     });
 
-    test('TC-025: GET employment-statuses?limit=0 returns 200, non-empty data', async () => {
+    test('TC-025: GET employment-statuses?limit=0 returns 200, non-empty data', { tag: ['@smoke', '@sanity', '@regression', '@module:pim', '@KAN-4'] }, async () => {
       const response = await api.getEmploymentStatuses();
       verifyResponseCode(response, 200);
       const body = await response.json();
@@ -337,7 +337,7 @@ test.describe('PIM Employees API - OrangeHRM', () => {
       expect(body.data.length).toBeGreaterThan(0);
     });
 
-    test('TC-026: GET subunits returns 200, non-empty data', async () => {
+    test('TC-026: GET subunits returns 200, non-empty data', { tag: ['@smoke', '@sanity', '@regression', '@module:pim', '@KAN-4'] }, async () => {
       const response = await api.getSubUnits();
       verifyResponseCode(response, 200);
       const body = await response.json();

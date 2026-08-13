@@ -1,7 +1,8 @@
 // spec: spec/ui/leave/leave-list.spec.ts
 // pattern: Page Object Model
 
-import { test, expect, chromium } from '@playwright/test';
+import { test, expect } from '../../../libs/fixtures/qaFixtures';
+import { chromium } from '@playwright/test';
 import { LeaveListPage } from '../../../libs/pages/leave/LeaveListPage';
 
 test.use({ storageState: 'playwright/.auth/admin.json' });

@@ -1,14 +1,14 @@
 // spec: spec/ui/pim/employee-list.spec.ts
 // pattern: Page Object Model
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../../../libs/fixtures/qaFixtures';
 import { EmployeeListPage } from '../../../libs/pages/pim/EmployeeListPage';
 
 test.use({ storageState: 'playwright/.auth/admin.json' });
 
 test.describe('PIM — Employee List', () => {
   // TC-030: Employee List table renders on load
-  test('TC-030: navigate to Employee List — table renders with column headers and at least one row', async ({
+  test('TC-030: navigate to Employee List — table renders with column headers and at least one row', { tag: ['@smoke', '@sanity', '@regression', '@module:pim', '@KAN-4'] }, async ({
     page,
   }) => {
     const employeeListPage = new EmployeeListPage(page);
@@ -30,7 +30,7 @@ test.describe('PIM — Employee List', () => {
   });
 
   // TC-031: Search by employee name narrows the table
-  test('TC-031: search "Ranga" — table shows employee with "Ranga" in name', async ({ page }) => {
+  test('TC-031: search "Ranga" — table shows employee with "Ranga" in name', { tag: ['@sanity', '@regression', '@module:pim', '@KAN-4'] }, async ({ page }) => {
     const employeeListPage = new EmployeeListPage(page);
 
     // Step 1: Navigate to the Employee List page
