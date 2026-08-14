@@ -33,17 +33,17 @@ qa-analyst steers every Epic/Story's test-case mix toward **60-70% API, 20-30% U
 
 ## What it does
 
-Given a Jira Epic/Story key (e.g. `PROJ-1234`), it runs seven steps in order — plus two quality sub-steps (5b, 5c) folded in right after execution:
+Given a Jira Epic/Story key (e.g. `PROJ-1234`), it runs seven **functional** steps in order (test plan through Jira bug drafts). Non-functional checks (accessibility/security/performance) are a distinct **step 8** — a separate command against separate artifacts, run on demand for any story, not folded into this functional sequence. See [Non-functional checks](#non-functional-checks-accessibility-security-performance) below.
 
 1. **Test plan and test cases** — resolves which run folder this is (first run or a re-run, see Artifacts below), **always pulls fresh from Jira on every run — including re-runs of the same key** (never reuses a prior run's fetched data, since the whole point of a re-run is to catch ticket changes since last time), fetching the Epic and every linked Story, Task, and Sub-task, plus linked Figma frames; writes `test-plan.md` itself (including the test-pyramid mix), and delegates test case design to `qa-test-designer` (targeting that mix), folding its output into `test-cases.md`.
 2. **Deployment gate + Figma parity check** — confirms the target environment is up and the Epic/Story's changes are actually deployed there; if Figma frames were linked, also compares the live app against them and logs discrepancies. If the env is down or changes are missing, it **stops and reports a blocker** instead of continuing.
 3. **Seed data + network capture** — ensures API and UI seed data is scripted (not manual), extending existing seed scripts where possible; all seeding runs **headless**, for both API and UI — no visible browser. While seeding, captures every distinct network call the app makes into `network-capture.md`, then immediately cross-checks captured endpoints against `test-cases.md` and adds/converts `Type: API` test cases for anything a UI-only case could equally be verified through — this happens before moving on, not left as a note for later.
 4. **Automation scripts** — delegates to `api-automation-architect` (using captured network shapes for API test cases, including endpoints not explicitly named in the ticket) and `ui-automation-architect` (see above) to create/update Playwright API and UI scripts, following this repo's existing conventions (or any `.cursor/rules` / Copilot instructions present, which take precedence) rather than inventing new patterns. Any `Type: API` case step 3 just added gets its script written in this same step — not deferred, and always via a real delegation to `api-automation-architect`, never authored directly. Every test is tagged `@smoke`/`@sanity`/`@regression` **plus `@module:<name>` and `@<JIRA-KEY>`** at this point, API and UI alike.
 5. **Test execution** — runs **only** the tests impacted by the Epic/Story, as **two separate CLI invocations — one for API specs, one for UI specs, never mixed into a single command, no matter how many files are impacted on either side** — always **headless** (no `--headed`, for API and UI alike), **on Chrome only, fixed at 2 workers** (never other browser projects) — never the full suite or unrelated pre-existing specs. Uses the smoke/sanity/regression tags to scope runs (`--grep @smoke` as a fast-fail gate before the full run, `--grep @regression` for the full impacted set), plus the `@module:*`/`@<JIRA-KEY>` tags to scope by module or ticket, in addition to path-based impacted-scope filtering. On a re-run, the **full impacted scope is executed again from scratch**, not just what changed since last time. Failing tests get **at most one retry**; it does not loop trying fixes indefinitely — if a failure survives one retry and one considered fix attempt, it's carried into analysis as a possible genuine issue rather than debugged forever. Manual-only scenarios are walked live via MCP (also headless) where feasible and otherwise listed as requiring manual execution. If a failure looks like an expired login/session (redirect to login, 401/403, invalid `storageState`) rather than a test defect, it **reruns `auth-setup` to relogin and retries that test once** — at most one relogin per test, never looped.
-5b. **Accessibility (axe-core) and security (OWASP ZAP)** — reuses the exact same `@smoke` tests from step 5, both API and UI, rather than adding any new tests. Every `@smoke` UI test's final page state gets an axe-core scan automatically (via a shared test fixture); every `@smoke` test's traffic, API and UI alike, is optionally proxied through a local OWASP ZAP daemon so its passive scanner can analyze it. Produces its own `accessibility/report.md` and `security/report.md`, separate from the main report. See [Accessibility, security, and performance checks](#accessibility-security-and-performance-checks) below.
-5c. **Performance smoke check (k6)** — generates (or reuses/updates) a k6 script targeting this Epic/Story's core API endpoint(s) — the same ones already covered by its `Type: API` `@smoke` test cases — and runs it as a **single-user, 5-iteration** smoke check, never a load or stress test. Produces `performance/report.md`.
 6. **Report analysis** — parses automation results and evidence (screenshots/videos/traces), distinguishes automation defects from genuine behavior deviations from the Epic/Story spec, and folds in any Figma-vs-app discrepancies from step 2.
-7. **Reporting** — writes both a detailed `report.md` and a short, high-level `execution-summary.md` into this run's folder, updates `latest.md`, and drafts Jira-formatted bug reports for genuine failures. `report.md` includes a short accessibility/security/performance summary linking the three dedicated reports above. Both report files are re-read from disk to confirm they were actually persisted before the run is declared complete — a chat summary alone doesn't count as this step being done. **It does not file real Jira tickets on its own** — it asks for confirmation first, and re-runs each confirmed draft's failing test once more to make sure it still reproduces before actually filing it.
+7. **Reporting** — writes both a detailed `report.md` and a short, high-level `execution-summary.md` into this run's folder, updates `latest.md`, and drafts Jira-formatted bug reports for genuine failures. **Functional results only** — accessibility/security/performance findings live in step 8's own report, never folded in here. Both report files are re-read from disk to confirm they were actually persisted before the run is declared complete — a chat summary alone doesn't count as this step being done. **It does not file real Jira tickets on its own** — it asks for confirmation first, and re-runs each confirmed draft's failing test once more to make sure it still reproduces before actually filing it.
+
+**Step 8 — Non-functional checks (accessibility, security, performance), separate and on demand.** Not part of the seven steps above and never runs automatically alongside them. Invoke it separately, any time, for any story that already has `@smoke` coverage from a prior functional run: reuses those exact `@smoke` tests (no new test files), runs its own pair of API/UI commands, and writes to a completely separate `qa-artifacts/<KEY>/nonfunctional/run-<M>/` tree with its own `latest.md` and run numbering. See [Non-functional checks](#non-functional-checks-accessibility-security-performance) below for the full breakdown and how to invoke it.
 
 ## Setup
 
@@ -53,7 +53,7 @@ Given a Jira Epic/Story key (e.g. `PROJ-1234`), it runs seven steps in order —
    ```
    Required variables: `JIRA_API_TOKEN`, `FIGMA_API_TOKEN`, `GIT_TOKEN`, `DEV_APP_CREDENTIALS`, `QA_APP_CREDENTIALS`. `.env` is git-ignored — never commit it.
 
-   Optional, for the accessibility/security/performance checks (step 5b/5c — see [below](#accessibility-security-and-performance-checks)): `ZAP_API_URL`, `ZAP_PROXY_URL`, `ZAP_API_KEY` (OWASP ZAP daemon), `K6_DOCKER_IMAGE` (Docker fallback if the `k6` CLI isn't installed). All four are optional — if unset or unreachable, those checks are skipped and reported as such rather than faked.
+   For the accessibility/security/performance checks (step 8, a separate on-demand command — see [below](#non-functional-checks-accessibility-security-performance)): `ZAP_API_URL`, `ZAP_PROXY_URL`, `ZAP_API_KEY` (OWASP ZAP daemon — leave `ZAP_API_KEY` blank since `npm run zap:start` disables the key requirement), `K6_DOCKER_IMAGE` (Docker fallback if the `k6` CLI isn't installed). These have working defaults out of the box (`ZAP_API_URL`/`ZAP_PROXY_URL` default to `http://127.0.0.1:8080`, matching `npm run zap:start`'s container) — run `npm run zap:start` and `npm run perf:pull-image` once (requires Docker Desktop running) so the checks actually execute instead of being skipped. If Docker genuinely isn't available, they still degrade gracefully: skipped and reported as such rather than faked.
 
 2. Edit [config/qa-agent.config.json](config/qa-agent.config.json) with your actual settings:
    - `jira.baseUrl` / `jira.projectKey` — your Jira site and project
@@ -66,6 +66,28 @@ Given a Jira Epic/Story key (e.g. `PROJ-1234`), it runs seven steps in order —
 4. For UI work, the agent uses the **Playwright CLI** and the **Playwright MCP server** — make sure both are available:
    - Playwright CLI: already part of this repo's `devDependencies`; runs via `npx playwright ...`.
    - Playwright MCP server: must be connected in your agent runner — Claude Code (`claude mcp add playwright`), Cursor (Settings → MCP or `.cursor/mcp.json`), GitHub Copilot (already declared per-agent in `.github/agents/*.agent.md`), or Codex CLI (already declared in `.codex/config.toml`) — so browser navigate/snapshot/click tools are available to the agent. See [Platform support](#platform-support) for exact steps and restart requirements per platform.
+
+5. **Infrastructure for the non-functional checks (step 8) — Docker, ZAP, k6.** These are real local services, not just config, and step 8 will report a skip if they're not actually running:
+   - **Prerequisite: Docker Desktop must be installed and running.** Check with:
+     ```bash
+     docker info
+     ```
+     If it errors with something like `failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine` (Windows) or a similar socket-not-found error, Docker Desktop's engine isn't up yet — launch the Docker Desktop application and wait for it to finish starting (30-60s on first launch) before retrying.
+   - **Start the local OWASP ZAP daemon** (used by the security check):
+     ```bash
+     npm run zap:start
+     ```
+     This runs `zaproxy/zap-stable` in a container on `:8080` with the API's address restriction relaxed (`api.addrs.addr.name=.*`/`api.addrs.addr.regex=true`) — **required**, not cosmetic: without those two flags ZAP rejects any API call that doesn't originate from `127.0.0.1`, which is exactly what happens when Playwright's own proxied traffic (or a containerized CI runner) queries it, so the security check would silently look "unreachable" even with ZAP running. ZAP's Java process takes ~20-40s to finish booting after the container starts — poll before assuming failure:
+     ```bash
+     npm run zap:status   # retry every few seconds until it prints {"version":"..."} instead of "ZAP not reachable"
+     ```
+     Stop it when you're done with `npm run zap:stop` (or leave it running between QA runs — the container is cheap to keep up).
+   - **Pre-pull the k6 Docker image** (used by the performance check's fallback if the `k6` CLI isn't installed natively):
+     ```bash
+     npm run perf:pull-image
+     ```
+     This avoids a slow first-run image pull happening in the middle of a QA run's performance step. If you'd rather install the native `k6` CLI instead (skips Docker entirely for this check), see [k6's install docs](https://grafana.com/docs/k6/latest/set-up/install-k6/) — either path works, the agent auto-detects which one is available.
+   - **Everything above is optional in the sense that the workflow degrades gracefully without it** — if Docker isn't installed/running at all, step 8's security portion (accessibility still runs) and performance portion are skipped and reported as such in its `report.md`, never faked. But do this setup once if you want actual non-functional coverage instead of skips.
 
 ## Platform support
 
@@ -121,22 +143,28 @@ qa-artifacts/<KEY>/
     test-cases.csv      ← same test cases in CSV, for import into TestRail/Zephyr/Xray/qTest/etc.
     network-capture.md
     script-changes.md
-    report.md
-    execution-summary.md
+    report.md            ← functional results only
+    execution-summary.md ← functional results only
     jira-bug-drafts.md
-    accessibility/      ← step 5b: axe-core results for the @smoke UI run
-      *.json
-      report.md
-    security/           ← step 5b: OWASP ZAP alerts for the @smoke API+UI run
-      zap-alerts.json
-      report.md
-    performance/        ← step 5c: k6 single-user smoke-check results
-      summary.json
-      report.md
   run-02/             ← a later re-run
     ...same files...
     delta.md          ← what changed vs. run-01, and why this run happened
+  nonfunctional/      ← step 8: a separate, on-demand check — NOT part of run-01/run-02 above, own numbering
+    latest.md          ← current nonfunctional run number + its own history table
+    run-01/
+      accessibility/      ← axe-core results for this story's @smoke UI tests
+        *.json
+        report.md
+      security/           ← OWASP ZAP alerts for this story's @smoke API+UI traffic
+        zap-alerts.json
+        report.md
+      performance/        ← k6 single-user smoke-check results
+        summary.json
+        report.md
+      report.md            ← step 8's own combined summary, linking the three above
 ```
+
+**The `nonfunctional/` tree is independent of the functional `run-N/` folders** — different numbering, different trigger, different report. A functional re-run never touches it, and running step 8 never creates a new `run-N/`.
 
 | File | Produced in step | Contents |
 |---|---|---|
@@ -147,12 +175,20 @@ qa-artifacts/<KEY>/
 | `delta.md` | 1 (re-runs only) | What changed in Jira/Figma/test-cases/scripts/results vs. the previous run, with a reference to that run's folder |
 | `network-capture.md` | 3 | Distinct API endpoints observed during UI seeding/test execution (method, path, status, request/response shape) |
 | `script-changes.md` | 4 | Every spec/wrapper/page-object/fixture file created or modified, with why |
-| `accessibility/*.json`, `accessibility/report.md` | 5b | Per-test axe-core scan results (raw JSON) and an aggregated report for the `@smoke` UI run |
-| `security/zap-alerts.json`, `security/report.md` | 5b | Raw OWASP ZAP alerts and an aggregated report for the `@smoke` API+UI run's proxied traffic |
-| `performance/summary.json`, `performance/report.md` | 5c | Raw k6 `handleSummary()` output and an aggregated report for the single-user, 5-iteration smoke check |
-| `report.md` | 7 | Detailed report — results, deviations, failure evidence, Figma parity findings, accessibility/security/performance summary |
-| `execution-summary.md` | 7 | Short, high-level pass/fail + go/no-go summary, readable in under a minute |
+| `report.md` | 7 | Detailed report — results, deviations, failure evidence, Figma parity findings (functional results only) |
+| `execution-summary.md` | 7 | Short, high-level pass/fail + go/no-go summary, readable in under a minute (functional results only) |
 | `jira-bug-drafts.md` | 7 | Draft Jira bug reports for genuine failures, pending your approval |
+
+**`nonfunctional/run-M/` (step 8 — separate tree, own numbering):**
+
+| File | Contents |
+|---|---|
+| `nonfunctional/latest.md` | Pointer to the current nonfunctional run + its own history table |
+| `accessibility/*.json`, `accessibility/report.md` | Per-test axe-core scan results (raw JSON) and an aggregated report for this story's `@smoke` UI tests |
+| `security/zap-alerts.json`, `security/report.md` | Raw OWASP ZAP alerts and an aggregated report for this story's `@smoke` API+UI proxied traffic |
+| `performance/summary.json`, `performance/report.md` | Raw k6 `handleSummary()` output and an aggregated report for the single-user, 5-iteration smoke check |
+| `report.md` | Step 8's own combined summary, linking the three reports above |
+| `jira-bug-drafts.md` | Draft Jira bugs for genuine non-functional findings, pending your approval |
 
 **Re-running the agent for the same key never overwrites a previous run.** It creates the next `run-N/` folder, writes `delta.md` comparing it to the prior run, and re-executes the **full impacted scope** for the Epic/Story from scratch — not just what changed. A run folder is only edited in place if you resume an interrupted invocation of that same run; a new invocation always gets a new folder.
 
@@ -181,17 +217,23 @@ Seeding, automated execution, and manual/MCP-driven walkthroughs all run **headl
 
 Every automated run — API and UI, on every platform — executes on Chrome only, with API specs and UI specs run as two distinct Playwright CLI invocations. `npx playwright test spec/api/leave-list.spec.ts spec/api/leave-search.spec.ts spec/ui/leave/leave-list.spec.ts --workers=1` is exactly the pattern this rule forbids — mixing API and UI spec paths (and overriding the worker count) in one command. Instead: one command covering all impacted API specs, then a separate command covering all impacted UI specs. `playwright.config.ts` is configured with `fullyParallel: false` and `workers: 2`, and only the `chromium` project is defined (the earlier `firefox`/`webkit` API projects were removed). Chrome-only was a deliberate fix: running chromium/firefox/webkit concurrently against the shared OrangeHRM demo site caused each browser's login to invalidate the others' session, producing intermittent, environment-caused test failures that looked like application bugs. Never override `--workers` away from `2` or pass `--project=firefox`/`--project=webkit` when invoking the CLI.
 
-## Accessibility, security, and performance checks
+## Non-functional checks (accessibility, security, performance)
 
-These three checks all reuse the existing `@smoke`-tagged functional tests — **none of them add a separate test file or test case.**
+**This is step 8 — a separate command producing separate artifacts, invoked on demand for any story, not part of the seven-step functional run above.** Running steps 1-7 for an Epic/Story never triggers these checks; you ask for them explicitly ("run the non-functional checks for KAN-13") whenever you want them, against any story that already has `@smoke`-tagged automated tests from a prior functional run. Step 8 doesn't create test coverage — it re-executes what already exists, filtered to that story's tests via its `@<KEY>` tag, and writes to its own `qa-artifacts/<KEY>/nonfunctional/run-<M>/` tree (see [Artifacts](#artifacts)) — numbered independently of the functional `run-N/` folders, so you can run it as often (or as rarely) as you like without disturbing functional run history.
 
-**Accessibility (axe-core).** [libs/fixtures/qaFixtures.ts](libs/fixtures/qaFixtures.ts) wraps Playwright's `test`/`expect` with an auto-fixture that scans every `@smoke`-tagged UI test's final page state with [`@axe-core/playwright`](https://github.com/dequelabs/axe-core-npm) when `A11Y_ARTIFACT_DIR` is set, writing one JSON file per test. Every spec under `spec/ui/**` already imports `test`/`expect` from this fixture instead of `@playwright/test` directly, so any new `@smoke` UI test is covered automatically. [scripts/generate-perf-report.js](scripts/generate-perf-report.js)'s accessibility counterpart — the aggregation in [libs/utils/a11yReport.ts](libs/utils/a11yReport.ts) — runs in `global-teardown.ts` to produce `accessibility/report.md` (violation counts by impact, plus per-test detail).
+All three checks reuse the existing `@smoke`-tagged functional tests — **none of them add a separate test file or test case.**
 
-**Security (OWASP ZAP).** [playwright.config.ts](playwright.config.ts) routes traffic from all four projects — the API `chromium` project and the three UI projects — through a local [OWASP ZAP](https://www.zaproxy.org/) daemon when `RUN_SECURITY_SCAN=true` (Playwright's `use.proxy` option is honored by both the browser context and the `request`/`APIRequestContext` fixture, so this covers API and UI traffic alike). ZAP passively analyzes that traffic as the same `@smoke` tests run — no active/intrusive scanning against the shared demo environment. [libs/utils/zapScan.ts](libs/utils/zapScan.ts) + `global-teardown.ts` wait for ZAP's passive-scan queue to drain, pull alerts for the app's `baseURL` via the ZAP REST API, and write `security/zap-alerts.json` + `security/report.md`. If no ZAP daemon is reachable at `ZAP_API_URL`, this is skipped and reported as such — never faked.
+**Accessibility (axe-core).** [libs/fixtures/qaFixtures.ts](libs/fixtures/qaFixtures.ts) wraps Playwright's `test`/`expect` with an auto-fixture that scans every `@smoke`-tagged UI test's final page state with [`@axe-core/playwright`](https://github.com/dequelabs/axe-core-npm) when `A11Y_ARTIFACT_DIR` is set, writing one JSON file per test. Every spec under `spec/ui/**` already imports `test`/`expect` from this fixture instead of `@playwright/test` directly, so any new `@smoke` UI test is covered automatically. The aggregation in [libs/utils/a11yReport.ts](libs/utils/a11yReport.ts) runs in `global-teardown.ts` to produce `accessibility/report.md` (violation counts by impact, plus per-test detail).
 
-**Performance (k6), single user / 5 iterations only.** [spec/performance/_template.k6.js](spec/performance/_template.k6.js) is the starting point for a per-Epic/Story k6 script, hard-set to `vus: 1, iterations: 5` — a latency/error-rate smoke check, not a load or stress test, and the agent never scales those numbers up for this workflow. The agent copies the template to `spec/performance/<module>-<KEY>.k6.js` and points it at the same endpoint(s) already covered by that run's `Type: API` `@smoke` cases, resolves auth from the session cookie in `playwright/.auth/admin.json`, and runs it with the `k6` CLI (or a Docker fallback using `K6_DOCKER_IMAGE` if `k6` isn't installed): `k6 run --vus 1 --iterations 5 spec/performance/<module>-<KEY>.k6.js`. [scripts/generate-perf-report.js](scripts/generate-perf-report.js) turns the resulting `summary.json` into `performance/report.md` (request count, response-time percentiles, failed-request rate, threshold pass/fail).
+**Security (OWASP ZAP).** [playwright.config.ts](playwright.config.ts) routes traffic from all four projects — the API `chromium` project and the three UI projects — through a local [OWASP ZAP](https://www.zaproxy.org/) daemon when `RUN_SECURITY_SCAN=true` (Playwright's `use.proxy` option is honored by both the browser context and the `request`/`APIRequestContext` fixture, so this covers API and UI traffic alike). ZAP passively analyzes that traffic as the same `@smoke` tests run — no active/intrusive scanning against the shared demo environment. [libs/utils/zapScan.ts](libs/utils/zapScan.ts) + `global-teardown.ts` wait for ZAP's passive-scan queue to drain, pull alerts for the app's `baseURL` via the ZAP REST API, and write `security/zap-alerts.json` + `security/report.md`. **The agent starts ZAP itself if it isn't already running** (`npm run zap:start`) before concluding the check is unreachable — only genuinely skipping (and saying so plainly) if Docker itself isn't usable.
 
-**Platform coverage:** this is currently wired into the Claude Code definition ([.claude/agents/qa-analyst.md](.claude/agents/qa-analyst.md), steps 5b/5c). The underlying mechanics (fixtures, config, scripts, templates) are platform-agnostic — driven by env vars and the Playwright/k6 CLIs — but the Cursor/Copilot/Codex agent definitions haven't been updated to describe these steps yet; port them by hand if you rely on this workflow from one of those runners (see [Platform support](#platform-support)).
+**Performance (k6), single user / 5 iterations only.** [spec/performance/_template.k6.js](spec/performance/_template.k6.js) is the starting point for a per-Epic/Story k6 script, hard-set to `vus: 1, iterations: 5` — a latency/error-rate smoke check, not a load or stress test, and the agent never scales those numbers up for this workflow. The agent copies the template to `spec/performance/<module>-<KEY>.k6.js` (a durable repo asset, reused across step 8 invocations, not regenerated each time) and points it at the same endpoint(s) already covered by that story's `Type: API` `@smoke` cases, resolves auth from the session cookie in `playwright/.auth/admin.json`, and runs it with the `k6` CLI (or a Docker fallback using `K6_DOCKER_IMAGE` if `k6` isn't installed): `k6 run --vus 1 --iterations 5 spec/performance/<module>-<KEY>.k6.js`. [scripts/generate-perf-report.js](scripts/generate-perf-report.js) turns the resulting `summary.json` into `performance/report.md` (request count, response-time percentiles, failed-request rate, threshold pass/fail).
+
+**Invoking it:** ask for it by name against a story that already has functional coverage — e.g. "run the non-functional checks for KAN-4" or "check accessibility/security/performance for KAN-13". The agent resolves `qa-artifacts/<KEY>/nonfunctional/latest.md` to figure out the next run number, executes the API and UI `@smoke` commands (scoped to that story via `@<KEY>`) with the accessibility/security env vars set, runs the k6 script, and writes a combined `nonfunctional/run-<M>/report.md` linking the three underlying reports — verified on disk before it's declared done, same discipline as step 7.
+
+**Local setup for these two checks** (Docker + ZAP + k6) is covered in [Setup](#setup) step 5 — do that once per machine before expecting real (non-skipped) accessibility/security/performance results.
+
+**Platform coverage:** wired into all four agent definitions — [.claude/agents/qa-analyst.md](.claude/agents/qa-analyst.md), [.codex/agents/qa-analyst.toml](.codex/agents/qa-analyst.toml), [.cursor/rules/qa-analyst.mdc](.cursor/rules/qa-analyst.mdc), and [.github/agents/qa-analyst.agent.md](.github/agents/qa-analyst.agent.md) all describe step 8 identically. The underlying mechanics (fixtures, config, scripts, templates) are platform-agnostic — driven by env vars and the Playwright/k6 CLIs.
 
 ## Notes
 

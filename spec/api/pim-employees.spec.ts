@@ -20,10 +20,11 @@ async function login(): Promise<string> {
   const page = await context.newPage();
 
   await page.goto(`${BASE_URL}/auth/login`);
-  await page.getByPlaceholder('Username').fill('Admin');
-  await page.getByPlaceholder('Password').fill('admin123');
-  await page.getByRole('button', { name: 'Login' }).click();
-  await page.waitForURL('**/dashboard/**', { timeout: 30000 });
+  await page.waitForSelector('input[name="username"]', { timeout: 30000 });
+  await page.locator('input[name="username"]').fill('Admin');
+  await page.locator('input[name="password"]').fill('admin123');
+  await page.locator('button[type="submit"]').click();
+  await page.waitForURL('**/dashboard/**', { timeout: 60000 });
 
   // Collect all cookies set by the authenticated session
   const cookies = await context.cookies();

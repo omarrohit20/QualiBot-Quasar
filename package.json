@@ -8,7 +8,13 @@
     "test:debug": "playwright test --debug",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
-    "test:report": "playwright show-report"
+    "test:report": "playwright show-report",
+    "zap:start": "docker rm -f zap 2>nul & docker run -d --name zap -p 8080:8080 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8080 -config api.disablekey=true -config api.addrs.addr.name=.* -config api.addrs.addr.regex=true",
+    "zap:stop": "docker rm -f zap",
+    "zap:status": "curl -s http://127.0.0.1:8080/JSON/core/view/version/ || echo ZAP not reachable",
+    "perf:pull-image": "docker pull grafana/k6:latest",
+    "test:a11y": "cross-env A11Y_ARTIFACT_DIR=qa-artifacts/accessibility/latest playwright test --grep @smoke --project=pim-ui --project=leave-ui --project=admin-ui",
+    "test:security": "cross-env RUN_SECURITY_SCAN=true SECURITY_ARTIFACT_DIR=qa-artifacts/security/latest playwright test --grep @smoke --project=chromium && cross-env RUN_SECURITY_SCAN=true SECURITY_ARTIFACT_DIR=qa-artifacts/security/latest playwright test --grep @smoke --project=pim-ui --project=leave-ui --project=admin-ui"
   },
   "keywords": [],
   "author": "",
@@ -18,6 +24,7 @@
     "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.46.0",
     "@types/node": "^22.0.0",
+    "cross-env": "^7.0.3",
     "dotenv": "^16.4.5",
     "typescript": "^6.0.2"
   }
