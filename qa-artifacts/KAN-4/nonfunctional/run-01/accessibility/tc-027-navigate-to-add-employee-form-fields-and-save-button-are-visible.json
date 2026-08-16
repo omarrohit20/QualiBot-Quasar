@@ -1,0 +1,749 @@
+{
+  "test": "TC-027: navigate to Add Employee — form fields and Save button are visible",
+  "specFile": "C:\\git\\QualiBot-Quasar\\spec\\ui\\pim\\add-employee.spec.ts",
+  "url": "https://opensource-demo.orangehrmlive.com/web/index.php/pim/addEmployee",
+  "tags": [
+    "@smoke",
+    "@sanity",
+    "@regression",
+    "@module:pim",
+    "@KAN-4"
+  ],
+  "violations": [
+    {
+      "id": "button-name",
+      "impact": "critical",
+      "tags": [
+        "cat.name-role-value",
+        "wcag2a",
+        "wcag412",
+        "section508",
+        "section508.22.a",
+        "TTv5",
+        "TT6.a",
+        "EN-301-549",
+        "EN-9.4.1.2",
+        "ACT",
+        "RGAAv4",
+        "RGAA-11.9.1"
+      ],
+      "description": "Ensure buttons have discernible text",
+      "help": "Buttons must have discernible text",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/button-name?application=playwright",
+      "nodes": [
+        {
+          "any": [
+            {
+              "id": "button-has-visible-text",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element does not have inner text that is visible to screen readers"
+            },
+            {
+              "id": "aria-label",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "aria-label attribute does not exist or is empty"
+            },
+            {
+              "id": "aria-labelledby",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+            },
+            {
+              "id": "non-empty-title",
+              "data": {
+                "messageKey": "noAttr"
+              },
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element has no title attribute"
+            },
+            {
+              "id": "implicit-label",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element does not have an implicit (wrapped) <label>"
+            },
+            {
+              "id": "explicit-label",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element does not have an explicit <label>"
+            },
+            {
+              "id": "presentational-role",
+              "data": {
+                "messageKey": "focusable",
+                "role": "button"
+              },
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element's role is not presentational because it is focusable"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "critical",
+          "html": "<button data-v-f5c763eb=\"\" data-v-636d6b87=\"\" class=\"oxd-icon-button oxd-main-menu-button\" type=\"button\" role=\"none\"><i data-v-bddebfba=\"\" data-v-f5c763eb=\"\" class=\"oxd-icon bi-chevron-left\"></i></button>",
+          "target": [
+            ".oxd-main-menu-button"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's role is not presentational because it is focusable"
+        },
+        {
+          "any": [
+            {
+              "id": "button-has-visible-text",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element does not have inner text that is visible to screen readers"
+            },
+            {
+              "id": "aria-label",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "aria-label attribute does not exist or is empty"
+            },
+            {
+              "id": "aria-labelledby",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+            },
+            {
+              "id": "non-empty-title",
+              "data": {
+                "messageKey": "noAttr"
+              },
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element has no title attribute"
+            },
+            {
+              "id": "implicit-label",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element does not have an implicit (wrapped) <label>"
+            },
+            {
+              "id": "explicit-label",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element does not have an explicit <label>"
+            },
+            {
+              "id": "presentational-role",
+              "data": {
+                "messageKey": "focusable",
+                "role": "button"
+              },
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element's role is not presentational because it is focusable"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "critical",
+          "html": "<button data-v-f5c763eb=\"\" data-v-91a700da=\"\" class=\"oxd-icon-button oxd-icon-button--solid-main employee-image-action\" type=\"button\" role=\"none\"><i data-v-bddebfba=\"\" data-v-f5c763eb=\"\" class=\"oxd-icon bi-plus\"></i></button>",
+          "target": [
+            ".oxd-icon-button--solid-main"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's role is not presentational because it is focusable"
+        }
+      ]
+    },
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "tags": [
+        "cat.color",
+        "wcag2aa",
+        "wcag143",
+        "TTv5",
+        "TT13.c",
+        "EN-301-549",
+        "EN-9.1.4.3",
+        "ACT",
+        "RGAAv4",
+        "RGAA-3.2.1"
+      ],
+      "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+      "help": "Elements must meet minimum color contrast ratio thresholds",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",
+      "nodes": [
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "fgColor": "#ff7b1d",
+                "bgColor": "#fafafa",
+                "contrastRatio": 2.48,
+                "fontSize": "10.5pt (14px)",
+                "fontWeight": "bold",
+                "messageKey": null,
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<button data-v-78cde31a=\"\" data-v-e60dde10=\"\" type=\"button\" class=\"oxd-glass-button orangehrm-upgrade-button\" size=\"large\">",
+                  "target": [
+                    ".oxd-glass-button"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element has insufficient color contrast of 2.48 (foreground color: #ff7b1d, background color: #fafafa, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<button data-v-78cde31a=\"\" data-v-e60dde10=\"\" type=\"button\" class=\"oxd-glass-button orangehrm-upgrade-button\" size=\"large\">",
+          "target": [
+            ".oxd-glass-button"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.48 (foreground color: #ff7b1d, background color: #fafafa, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "fgColor": "#929baa",
+                "bgColor": "#f8f9fa",
+                "contrastRatio": 2.65,
+                "fontSize": "9.0pt (12px)",
+                "fontWeight": "normal",
+                "messageKey": null,
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<li data-v-429cfcf3=\"\" data-v-5327b38a=\"\" class=\"oxd-topbar-body-nav-tab --parent\"><span class=\"oxd-topbar-body-nav-tab-item\">Configuration <i data-v-bddebfba=\"\" class=\"oxd-icon bi-chevron-down\" with-container=\"false\"></i></span><!----></li>",
+                  "target": [
+                    ".--parent"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element has insufficient color contrast of 2.65 (foreground color: #929baa, background color: #f8f9fa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<span class=\"oxd-topbar-body-nav-tab-item\">Configuration <i data-v-bddebfba=\"\" class=\"oxd-icon bi-chevron-down\" with-container=\"false\"></i></span>",
+          "target": [
+            ".--parent > .oxd-topbar-body-nav-tab-item"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.65 (foreground color: #929baa, background color: #f8f9fa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "fgColor": "#929baa",
+                "bgColor": "#f8f9fa",
+                "contrastRatio": 2.65,
+                "fontSize": "9.0pt (12px)",
+                "fontWeight": "normal",
+                "messageKey": null,
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<li data-v-5327b38a=\"\" class=\"oxd-topbar-body-nav-tab\"><a class=\"oxd-topbar-body-nav-tab-item\" href=\"#\">Employee List</a></li>",
+                  "target": [
+                    ".oxd-topbar-body-nav-tab[data-v-5327b38a=\"\"]:nth-child(2)"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element has insufficient color contrast of 2.65 (foreground color: #929baa, background color: #f8f9fa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<a class=\"oxd-topbar-body-nav-tab-item\" href=\"#\">Employee List</a>",
+          "target": [
+            ".oxd-topbar-body-nav-tab[data-v-5327b38a=\"\"]:nth-child(2) > .oxd-topbar-body-nav-tab-item[href=\"#\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.65 (foreground color: #929baa, background color: #f8f9fa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "fgColor": "#ff7b1d",
+                "bgColor": "#fff2e8",
+                "contrastRatio": 2.35,
+                "fontSize": "9.0pt (12px)",
+                "fontWeight": "normal",
+                "messageKey": null,
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<li data-v-5327b38a=\"\" class=\"oxd-topbar-body-nav-tab --visited\"><a class=\"oxd-topbar-body-nav-tab-item\" href=\"#\">Add Employee</a></li>",
+                  "target": [
+                    ".--visited"
+                  ]
+                },
+                {
+                  "html": "<div data-v-c286b6e5=\"\" class=\"oxd-topbar-body\">",
+                  "target": [
+                    ".oxd-topbar-body"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element has insufficient color contrast of 2.35 (foreground color: #ff7b1d, background color: #fff2e8, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<a class=\"oxd-topbar-body-nav-tab-item\" href=\"#\">Add Employee</a>",
+          "target": [
+            ".--visited > .oxd-topbar-body-nav-tab-item[href=\"#\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.35 (foreground color: #ff7b1d, background color: #fff2e8, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "fgColor": "#929baa",
+                "bgColor": "#f8f9fa",
+                "contrastRatio": 2.65,
+                "fontSize": "9.0pt (12px)",
+                "fontWeight": "normal",
+                "messageKey": null,
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<li data-v-5327b38a=\"\" class=\"oxd-topbar-body-nav-tab\"><a class=\"oxd-topbar-body-nav-tab-item\" href=\"#\">Reports</a></li>",
+                  "target": [
+                    ".oxd-topbar-body-nav-tab[data-v-5327b38a=\"\"]:nth-child(4)"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element has insufficient color contrast of 2.65 (foreground color: #929baa, background color: #f8f9fa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<a class=\"oxd-topbar-body-nav-tab-item\" href=\"#\">Reports</a>",
+          "target": [
+            ".oxd-topbar-body-nav-tab[data-v-5327b38a=\"\"]:nth-child(4) > .oxd-topbar-body-nav-tab-item[href=\"#\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.65 (foreground color: #929baa, background color: #f8f9fa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "fgColor": "#64728c",
+                "bgColor": "#f6f5fb",
+                "contrastRatio": 4.47,
+                "fontSize": "9.6pt (12.8px)",
+                "fontWeight": "normal",
+                "messageKey": null,
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<body>",
+                  "target": [
+                    "body"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element has insufficient color contrast of 4.47 (foreground color: #64728c, background color: #f6f5fb, font size: 9.6pt (12.8px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<p data-v-7b563373=\"\" class=\"oxd-text oxd-text--p orangehrm-copyright\">OrangeHRM OS 5.9</p>",
+          "target": [
+            ".orangehrm-copyright.oxd-text--p:nth-child(1)"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.47 (foreground color: #64728c, background color: #f6f5fb, font size: 9.6pt (12.8px), font weight: normal). Expected contrast ratio of 4.5:1"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "fgColor": "#64728c",
+                "bgColor": "#f6f5fb",
+                "contrastRatio": 4.47,
+                "fontSize": "9.6pt (12.8px)",
+                "fontWeight": "normal",
+                "messageKey": null,
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<body>",
+                  "target": [
+                    "body"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element has insufficient color contrast of 4.47 (foreground color: #64728c, background color: #f6f5fb, font size: 9.6pt (12.8px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<p data-v-7b563373=\"\" class=\"oxd-text oxd-text--p orangehrm-copyright\">© 2005 - 2026 <a href=\"http://www.orangehrm.com\" target=\"_blank\">OrangeHRM, Inc</a>. All rights reserved.</p>",
+          "target": [
+            ".orangehrm-copyright.oxd-text--p:nth-child(2)"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.47 (foreground color: #64728c, background color: #f6f5fb, font size: 9.6pt (12.8px), font weight: normal). Expected contrast ratio of 4.5:1"
+        }
+      ]
+    },
+    {
+      "id": "html-has-lang",
+      "impact": "serious",
+      "tags": [
+        "cat.language",
+        "wcag2a",
+        "wcag311",
+        "TTv5",
+        "TT11.a",
+        "EN-301-549",
+        "EN-9.3.1.1",
+        "ACT",
+        "RGAAv4",
+        "RGAA-8.3.1"
+      ],
+      "description": "Ensure every HTML document has a lang attribute",
+      "help": "<html> element must have a lang attribute",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/html-has-lang?application=playwright",
+      "nodes": [
+        {
+          "any": [
+            {
+              "id": "has-lang",
+              "data": {
+                "messageKey": "noLang"
+              },
+              "relatedNodes": [],
+              "impact": "serious",
+              "message": "The <html> element does not have a lang attribute"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<html>",
+          "target": [
+            "html"
+          ],
+          "failureSummary": "Fix any of the following:\n  The <html> element does not have a lang attribute"
+        }
+      ]
+    },
+    {
+      "id": "label",
+      "impact": "critical",
+      "tags": [
+        "cat.forms",
+        "wcag2a",
+        "wcag412",
+        "section508",
+        "section508.22.n",
+        "TTv5",
+        "TT5.c",
+        "EN-301-549",
+        "EN-9.4.1.2",
+        "ACT",
+        "RGAAv4",
+        "RGAA-11.1.1"
+      ],
+      "description": "Ensure every form element has a label",
+      "help": "Form elements must have labels",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/label?application=playwright",
+      "nodes": [
+        {
+          "any": [
+            {
+              "id": "implicit-label",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element does not have an implicit (wrapped) <label>"
+            },
+            {
+              "id": "explicit-label",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element does not have an explicit <label>"
+            },
+            {
+              "id": "aria-label",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "aria-label attribute does not exist or is empty"
+            },
+            {
+              "id": "aria-labelledby",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+            },
+            {
+              "id": "non-empty-title",
+              "data": {
+                "messageKey": "noAttr"
+              },
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element has no title attribute"
+            },
+            {
+              "id": "non-empty-placeholder",
+              "data": {
+                "messageKey": "noAttr"
+              },
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element has no placeholder attribute"
+            },
+            {
+              "id": "presentational-role",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "critical",
+          "html": "<input data-v-1b0f05a0=\"\" type=\"file\" class=\"oxd-file-input\">",
+          "target": [
+            ".oxd-file-input"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element has no placeholder attribute\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+        },
+        {
+          "any": [
+            {
+              "id": "implicit-label",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element does not have an implicit (wrapped) <label>"
+            },
+            {
+              "id": "explicit-label",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element does not have an explicit <label>"
+            },
+            {
+              "id": "aria-label",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "aria-label attribute does not exist or is empty"
+            },
+            {
+              "id": "aria-labelledby",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+            },
+            {
+              "id": "non-empty-title",
+              "data": {
+                "messageKey": "noAttr"
+              },
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element has no title attribute"
+            },
+            {
+              "id": "non-empty-placeholder",
+              "data": {
+                "messageKey": "noAttr"
+              },
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element has no placeholder attribute"
+            },
+            {
+              "id": "presentational-role",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "critical",
+          "html": "<input data-v-1f99f73c=\"\" class=\"oxd-input oxd-input--active\">",
+          "target": [
+            ".oxd-grid-item.oxd-grid-item--gutters[data-v-c93bdbf3=\"\"] > .oxd-input-field-bottom-space.oxd-input-group[data-v-957b4417=\"\"] > div[data-v-957b4417=\"\"]:nth-child(2) > .oxd-input.oxd-input--active[data-v-1f99f73c=\"\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element has no placeholder attribute\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+        },
+        {
+          "any": [
+            {
+              "id": "implicit-label",
+              "data": {
+                "implicitLabel": ""
+              },
+              "relatedNodes": [
+                {
+                  "html": "<label data-v-8e4757dc=\"\" class=\"\"><!----><input data-v-8e4757dc=\"\" type=\"checkbox\"><span data-v-8e4757dc=\"\" class=\"oxd-switch-input oxd-switch-input--active --label-right\"></span></label>",
+                  "target": [
+                    ".oxd-switch-wrapper > label"
+                  ]
+                }
+              ],
+              "impact": "critical",
+              "message": "Element does not have an implicit (wrapped) <label>"
+            },
+            {
+              "id": "explicit-label",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element does not have an explicit <label>"
+            },
+            {
+              "id": "aria-label",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "aria-label attribute does not exist or is empty"
+            },
+            {
+              "id": "aria-labelledby",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+            },
+            {
+              "id": "non-empty-title",
+              "data": {
+                "messageKey": "noAttr"
+              },
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element has no title attribute"
+            },
+            {
+              "id": "non-empty-placeholder",
+              "data": {
+                "messageKey": "noAttr"
+              },
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element has no placeholder attribute"
+            },
+            {
+              "id": "presentational-role",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "critical",
+              "message": "Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "critical",
+          "html": "<input data-v-8e4757dc=\"\" type=\"checkbox\">",
+          "target": [
+            "input[type=\"checkbox\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element has no placeholder attribute\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+        }
+      ]
+    },
+    {
+      "id": "list",
+      "impact": "serious",
+      "tags": [
+        "cat.structure",
+        "wcag2a",
+        "wcag131",
+        "EN-301-549",
+        "EN-9.1.3.1",
+        "RGAAv4",
+        "RGAA-9.3.1"
+      ],
+      "description": "Ensure that lists are structured correctly",
+      "help": "<ul> and <ol> must only directly contain <li>, <script> or <template> elements",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/list?application=playwright",
+      "nodes": [
+        {
+          "any": [],
+          "all": [],
+          "none": [
+            {
+              "id": "only-listitems",
+              "data": {
+                "values": "div"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<div data-v-5327b38a=\"\" class=\"oxd-topbar-body-nav-slot\"><button data-v-f5c763eb=\"\" class=\"oxd-icon-button\" type=\"button\" title=\"Help\"><i data-v-bddebfba=\"\" data-v-f5c763eb=\"\" class=\"oxd-icon bi-question-lg\"></i></button></div>",
+                  "target": [
+                    ".oxd-topbar-body-nav-slot"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "List element has direct children that are not allowed: div"
+            }
+          ],
+          "impact": "serious",
+          "html": "<ul data-v-5327b38a=\"\">",
+          "target": [
+            ".oxd-topbar-body-nav > ul"
+          ],
+          "failureSummary": "Fix all of the following:\n  List element has direct children that are not allowed: div"
+        }
+      ]
+    }
+  ]
+}

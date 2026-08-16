@@ -7,6 +7,7 @@ const BASE_URL = 'https://opensource-demo.orangehrmlive.com/web/index.php';
 
 let api: PimEmployees;
 let cookies: string = '';
+let seedEmpNumber: number = 0; // dynamically resolved from employee list in beforeAll
 
 // Track empNumbers created during tests for cleanup
 const createdEmpNumbers: number[] = [];
@@ -37,6 +38,15 @@ test.describe('PIM Employees API - OrangeHRM', () => {
   test.beforeAll(async () => {
     cookies = await login();
     api = new PimEmployees(cookies);
+    // Dynamically resolve a valid empNumber from the employee list so TC-017/TC-033/TC-019
+    // are not coupled to a hardcoded empNumber that may be deleted on the shared demo environment.
+    const listResp = await api.listEmployees({ limit: 1, offset: 0 });
+    if (listResp.status() === 200) {
+      const listBody = await listResp.json();
+      if (listBody.data && listBody.data.length > 0) {
+        seedEmpNumber = listBody.data[0].empNumber;
+      }
+    }
   });
 
   test.afterAll(async () => {
@@ -175,11 +185,12 @@ test.describe('PIM Employees API - OrangeHRM', () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   test.describe('Employee Read', () => {
-    test('TC-017: GET /api/v2/pim/employees/3 returns 200 with empNumber=3', { tag: ['@smoke', '@sanity', '@regression', '@module:pim', '@KAN-4'] }, async () => {
-      const response = await api.getEmployee(3);
+    test('TC-017: GET /api/v2/pim/employees/{seedEmpNumber} returns 200 with correct empNumber', { tag: ['@smoke', '@sanity', '@regression', '@module:pim', '@KAN-4'] }, async () => {
+      expect(seedEmpNumber).toBeGreaterThan(0); // guard: list must have returned a valid employee
+      const response = await api.getEmployee(seedEmpNumber);
       verifyResponseCode(response, 200);
       const body = await response.json();
-      expect(body.data.empNumber).toBe(3);
+      expect(body.data.empNumber).toBe(seedEmpNumber);
     });
 
     test('TC-018: GET /api/v2/pim/employees/9999999 returns 404 or 422', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async () => {
@@ -188,15 +199,16 @@ test.describe('PIM Employees API - OrangeHRM', () => {
       expect([404, 422]).toContain(response.status());
     });
 
-    test('TC-033: GET personal-details for empNumber=3 returns 200 with required fields', { tag: ['@smoke', '@sanity', '@regression', '@module:pim', '@KAN-4'] }, async () => {
-      const response = await api.getEmployeePersonalDetails(3);
+    test('TC-033: GET personal-details for seed employee returns 200 with required fields', { tag: ['@smoke', '@sanity', '@regression', '@module:pim', '@KAN-4'] }, async () => {
+      expect(seedEmpNumber).toBeGreaterThan(0); // guard: list must have returned a valid employee
+      const response = await api.getEmployeePersonalDetails(seedEmpNumber);
       verifyResponseCode(response, 200);
       const body = await response.json();
       expect(body.data).toHaveProperty('gender');
       expect(body.data).toHaveProperty('maritalStatus');
       expect(body.data).toHaveProperty('birthday');
       expect(body.data).toHaveProperty('nationality');
-      expect(body.data.empNumber).toBe(3);
+      expect(body.data.empNumber).toBe(seedEmpNumber);
     });
   });
 
@@ -206,10 +218,11 @@ test.describe('PIM Employees API - OrangeHRM', () => {
 
   test.describe('Employee Update', () => {
     test('TC-019: PUT personal-details on existing employee, GET to verify update', { tag: ['@regression', '@module:pim', '@KAN-4'] }, async () => {
-      // Use empNumber=3 which is a pre-seeded employee confirmed to exist with full
-      // personal-details (TC-017 and TC-033 both verify it). Newly-created employees
-      // have no personal-details DB row yet and cause a server 500 on PUT.
-      const empNumber = 3;
+      // Use seedEmpNumber (dynamically resolved from the employee list) which is confirmed
+      // to exist with full personal-details (TC-017 and TC-033 both verify it).
+      // Newly-created employees have no personal-details DB row yet and cause a server 500 on PUT.
+      expect(seedEmpNumber).toBeGreaterThan(0);
+      const empNumber = seedEmpNumber;
 
       // Capture current personal details so we can restore after the test
       const beforeResp = await api.getEmployeePersonalDetails(empNumber);

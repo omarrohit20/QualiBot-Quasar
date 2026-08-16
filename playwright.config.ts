@@ -43,7 +43,13 @@ export default defineConfig({
     // --- API project (jsonplaceholder.typicode.com) ---
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'], proxy: zapProxy },
+      use: {
+        ...devices['Desktop Chrome'],
+        proxy: zapProxy,
+        // When routing through ZAP's passive-scan proxy, trust ZAP's self-signed cert
+        // so the APIRequestContext doesn't reject it. Only applied during security scans.
+        ignoreHTTPSErrors: process.env.RUN_SECURITY_SCAN === 'true',
+      },
       testMatch: 'spec/api/**/*.spec.ts',
     },
 
@@ -61,6 +67,7 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         storageState: 'playwright/.auth/admin.json',
         proxy: zapProxy,
+        ignoreHTTPSErrors: process.env.RUN_SECURITY_SCAN === 'true',
       },
       testMatch: 'spec/ui/pim/**/*.spec.ts',
       dependencies: ['auth-setup'],
@@ -73,6 +80,7 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         storageState: 'playwright/.auth/admin.json',
         proxy: zapProxy,
+        ignoreHTTPSErrors: process.env.RUN_SECURITY_SCAN === 'true',
       },
       testMatch: 'spec/ui/leave/**/*.spec.ts',
       dependencies: ['auth-setup'],
@@ -85,6 +93,7 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         storageState: 'playwright/.auth/admin.json',
         proxy: zapProxy,
+        ignoreHTTPSErrors: process.env.RUN_SECURITY_SCAN === 'true',
       },
       testMatch: 'spec/ui/admin/**/*.spec.ts',
       dependencies: ['auth-setup'],

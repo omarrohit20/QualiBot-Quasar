@@ -30,21 +30,36 @@ test.describe('PIM — Employee List', () => {
   });
 
   // TC-031: Search by employee name narrows the table
-  test('TC-031: search "Ranga" — table shows employee with "Ranga" in name', { tag: ['@sanity', '@regression', '@module:pim', '@KAN-4'] }, async ({ page }) => {
+  // Fix (run-05): "Ranga" no longer exists on the shared demo. Now dynamically reads the
+  // first employee's last name from the unfiltered list and uses it as the search term,
+  // so the test is not coupled to any hardcoded person that may have been deleted.
+  test('TC-031: search by first visible employee last name — table shows that employee', { tag: ['@sanity', '@regression', '@module:pim', '@KAN-4'] }, async ({ page }) => {
     const employeeListPage = new EmployeeListPage(page);
 
-    // Step 1: Navigate to the Employee List page
+    // Step 1: Navigate to the Employee List page (unfiltered)
     await employeeListPage.navigate();
 
-    // Step 2: Search for "Ranga"
-    await employeeListPage.searchByName('Ranga');
-
-    // Step 3: At least one row is returned
-    const rowCount = await employeeListPage.getRowCount();
-    expect(rowCount).toBeGreaterThan(0);
-
-    // Step 4: The first result row contains the text "Ranga"
+    // Step 2: Read the last name from the first row so we have a name we KNOW exists
     const firstRow = employeeListPage.getTableRows().first();
-    await expect(firstRow).toContainText('Ranga');
+    const firstRowText = await firstRow.innerText();
+    // The row text contains tab-separated columns; column 3 (0-indexed col 2) is First Name,
+    // col 3 is Last Name. Use the raw row text for a partial match — just take the last word
+    // from the row that isn't a number, as a partial search term.
+    const cells = firstRowText.split('\t').map(s => s.trim()).filter(s => s.length > 0);
+    // cells[1] is typically First Name, cells[2] is Middle Name, cells[3] is Last Name
+    // Use the first meaningful text cell (not empty, not a number) as the search term
+    const searchTerm = cells.find(c => c.length > 1 && isNaN(Number(c))) ?? cells[1] ?? '';
+    expect(searchTerm.length).toBeGreaterThan(0);
+
+    // Step 3: Search by that name
+    await employeeListPage.searchByName(searchTerm);
+
+    // Step 4: At least one row is returned
+    const rowCountAfter = await employeeListPage.getRowCount();
+    expect(rowCountAfter).toBeGreaterThan(0);
+
+    // Step 5: The first result row contains the search term
+    const firstResultRow = employeeListPage.getTableRows().first();
+    await expect(firstResultRow).toContainText(searchTerm);
   });
 });
