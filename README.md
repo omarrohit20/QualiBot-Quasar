@@ -122,13 +122,19 @@ The workflow, artifacts, and rules are identical across platforms — only how y
 
 ## Usage
 
-Invoke it with an Epic or Story key:
+Invoke it with an Epic or Story key, for the full functional workflow (steps 1-7):
 
 > Run the qa-analyst agent for PROJ-1234
 
 Or, in Claude Code, via the Agent tool with `subagent_type: qa-analyst`; in Cursor via `@qa-analyst`; in GitHub Copilot via the agent picker; in Codex CLI by selecting the `qa-analyst` agent. See [Platform support](#platform-support) above for the exact mechanics per platform.
 
 If `.env` is missing or a required token is empty, the agent stops and reports that as a blocker before making any Jira/Figma calls — it will not fabricate data.
+
+**Non-functional checks (step 8) are a separate, on-demand request to this same `qa-analyst` agent — not a different agent or a separate tool.** Same invocation mechanics per platform as above, just ask for step 8 by name instead of a plain functional run:
+
+> Run the qa-analyst non-functional agent for PROJ-1234
+
+(equally: "Run the non-functional checks for PROJ-1234" or "Check accessibility/security/performance for PROJ-1234" — all trigger the same step 8). The story must already have `@smoke`-tagged tests from a prior functional run (steps 1-5) — step 8 re-executes that existing coverage with accessibility/security/performance instrumentation attached, it doesn't author new tests. See [Non-functional checks](#non-functional-checks-accessibility-security-performance) for what it does and where it writes its results.
 
 ## Artifacts
 
@@ -219,7 +225,7 @@ Every automated run — API and UI, on every platform — executes on Chrome onl
 
 ## Non-functional checks (accessibility, security, performance)
 
-**This is step 8 — a separate command producing separate artifacts, invoked on demand for any story, not part of the seven-step functional run above.** Running steps 1-7 for an Epic/Story never triggers these checks; you ask for them explicitly ("run the non-functional checks for KAN-13") whenever you want them, against any story that already has `@smoke`-tagged automated tests from a prior functional run. Step 8 doesn't create test coverage — it re-executes what already exists, filtered to that story's tests via its `@<KEY>` tag, and writes to its own `qa-artifacts/<KEY>/nonfunctional/run-<M>/` tree (see [Artifacts](#artifacts)) — numbered independently of the functional `run-N/` folders, so you can run it as often (or as rarely) as you like without disturbing functional run history.
+**This is step 8 — a separate command producing separate artifacts, invoked on demand for any story, not part of the seven-step functional run above.** Running steps 1-7 for an Epic/Story never triggers these checks; you ask for them explicitly ("Run the qa-analyst non-functional agent for KAN-13") whenever you want them, against any story that already has `@smoke`-tagged automated tests from a prior functional run. Step 8 doesn't create test coverage — it re-executes what already exists, filtered to that story's tests via its `@<KEY>` tag, and writes to its own `qa-artifacts/<KEY>/nonfunctional/run-<M>/` tree (see [Artifacts](#artifacts)) — numbered independently of the functional `run-N/` folders, so you can run it as often (or as rarely) as you like without disturbing functional run history.
 
 All three checks reuse the existing `@smoke`-tagged functional tests — **none of them add a separate test file or test case.**
 
@@ -229,7 +235,7 @@ All three checks reuse the existing `@smoke`-tagged functional tests — **none 
 
 **Performance (k6), single user / 5 iterations only.** [spec/performance/_template.k6.js](spec/performance/_template.k6.js) is the starting point for a per-Epic/Story k6 script, hard-set to `vus: 1, iterations: 5` — a latency/error-rate smoke check, not a load or stress test, and the agent never scales those numbers up for this workflow. The agent copies the template to `spec/performance/<module>-<KEY>.k6.js` (a durable repo asset, reused across step 8 invocations, not regenerated each time) and points it at the same endpoint(s) already covered by that story's `Type: API` `@smoke` cases, resolves auth from the session cookie in `playwright/.auth/admin.json`, and runs it with the `k6` CLI (or a Docker fallback using `K6_DOCKER_IMAGE` if `k6` isn't installed): `k6 run --vus 1 --iterations 5 spec/performance/<module>-<KEY>.k6.js`. [scripts/generate-perf-report.js](scripts/generate-perf-report.js) turns the resulting `summary.json` into `performance/report.md` (request count, response-time percentiles, failed-request rate, threshold pass/fail).
 
-**Invoking it:** ask for it by name against a story that already has functional coverage — e.g. "run the non-functional checks for KAN-4" or "check accessibility/security/performance for KAN-13". The agent resolves `qa-artifacts/<KEY>/nonfunctional/latest.md` to figure out the next run number, executes the API and UI `@smoke` commands (scoped to that story via `@<KEY>`) with the accessibility/security env vars set, runs the k6 script, and writes a combined `nonfunctional/run-<M>/report.md` linking the three underlying reports — verified on disk before it's declared done, same discipline as step 7.
+**Invoking it:** ask for it by name against a story that already has functional coverage — e.g. "Run the qa-analyst non-functional agent for KAN-4" or "check accessibility/security/performance for KAN-13". The agent resolves `qa-artifacts/<KEY>/nonfunctional/latest.md` to figure out the next run number, executes the API and UI `@smoke` commands (scoped to that story via `@<KEY>`) with the accessibility/security env vars set, runs the k6 script, and writes a combined `nonfunctional/run-<M>/report.md` linking the three underlying reports — verified on disk before it's declared done, same discipline as step 7.
 
 **Local setup for these two checks** (Docker + ZAP + k6) is covered in [Setup](#setup) step 5 — do that once per machine before expecting real (non-skipped) accessibility/security/performance results.
 
