@@ -1,17 +1,18 @@
-// spec/performance/pim-KAN-4.k6.js
+// spec/performance/pim.k6.js
 //
-// KAN-4 (PIM — Employee Management) performance smoke check.
-// Single-user, 5 iterations — covers the @smoke API endpoints:
-//   TC-001: GET /api/v2/pim/employees (employee list, default params)
-//   TC-009: POST /api/v2/pim/employees (employee create)
-//   TC-024: GET /api/v2/pim/employees/jobTitles (reference data — job titles)
-//   TC-025: GET /api/v2/pim/employees/empStatuses (reference data — employment statuses)
-//   TC-026: GET /api/v2/pim/subunit (reference data — subunits)
+// PIM (Employee Management) module performance smoke check.
+// Single-user, 5 iterations — shared across every Epic/Story that touches this
+// module's `Type: API` @smoke endpoints; extend this file when a new story adds
+// coverage rather than creating a per-story script. Endpoints added so far:
+//   KAN-4: GET /api/v2/pim/employees (employee list, default params)
+//   KAN-4: GET /api/v2/pim/employees/jobTitles (reference data — job titles)
+//   KAN-4: GET /api/v2/pim/employees/empStatuses (reference data — employment statuses)
+//   KAN-4: GET /api/v2/pim/subunit (reference data — subunits)
 //
 // Run via Docker (k6 binary not installed in this environment):
-//   docker run --rm -i -e BASE_URL -e AUTH_COOKIE -e K6_SUMMARY_FILE \
+//   docker run --rm -i -e BASE_URL -e AUTH_COOKIE -e AUTH_CSRF_TOKEN -e K6_SUMMARY_FILE \
 //     -v "$PWD:/work" -w /work grafana/k6:latest run --vus 1 --iterations 5 \
-//     spec/performance/pim-KAN-4.k6.js
+//     spec/performance/pim.k6.js
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
@@ -26,15 +27,32 @@ export const options = {
 };
 
 const BASE_URL = __ENV.BASE_URL || 'https://opensource-demo.orangehrmlive.com';
-const AUTH_COOKIE = __ENV.AUTH_COOKIE || '';
 
-export default function () {
+// Capture AUTH_COOKIE fresh, immediately before running this script (re-run
+// spec/ui/auth.setup.ts right beforehand) — a stale session cookie, invalidated by
+// a later login on this shared demo, is the most common cause of every request in
+// the run failing identically. If requests still fail after confirming the cookie
+// is fresh, check network-capture.md for a required CSRF header (e.g. X-CSRF-TOKEN)
+// on these endpoints and pass its value as AUTH_CSRF_TOKEN below before concluding
+// it's an application defect.
+const AUTH_COOKIE = __ENV.AUTH_COOKIE || '';
+const AUTH_CSRF_TOKEN = __ENV.AUTH_CSRF_TOKEN || '';
+
+function authHeaders() {
   const headers = {
     Cookie: `orangehrm=${AUTH_COOKIE}`,
     Accept: 'application/json',
   };
+  if (AUTH_CSRF_TOKEN) {
+    headers['X-CSRF-TOKEN'] = AUTH_CSRF_TOKEN;
+  }
+  return headers;
+}
 
-  // TC-001: GET employee list
+export default function () {
+  const headers = authHeaders();
+
+  // KAN-4: GET employee list
   const listRes = http.get(`${BASE_URL}/web/index.php/api/v2/pim/employees?limit=50&offset=0`, { headers });
   check(listRes, {
     'GET /pim/employees status 200': (r) => r.status === 200,
@@ -44,21 +62,21 @@ export default function () {
     },
   });
 
-  // TC-024: GET job titles reference data
+  // KAN-4: GET job titles reference data
   const jobTitlesRes = http.get(`${BASE_URL}/web/index.php/api/v2/admin/jobTitles?limit=0`, { headers });
   check(jobTitlesRes, {
     'GET /jobTitles status 200': (r) => r.status === 200,
     'GET /jobTitles response < 2000ms': (r) => r.timings.duration < 2000,
   });
 
-  // TC-025: GET employment statuses reference data
+  // KAN-4: GET employment statuses reference data
   const empStatusesRes = http.get(`${BASE_URL}/web/index.php/api/v2/admin/employmentStatuses?limit=0`, { headers });
   check(empStatusesRes, {
     'GET /employmentStatuses status 200': (r) => r.status === 200,
     'GET /employmentStatuses response < 2000ms': (r) => r.timings.duration < 2000,
   });
 
-  // TC-026: GET subunits reference data
+  // KAN-4: GET subunits reference data
   const subunitsRes = http.get(`${BASE_URL}/web/index.php/api/v2/admin/subunits`, { headers });
   check(subunitsRes, {
     'GET /subunits status 200': (r) => r.status === 200,

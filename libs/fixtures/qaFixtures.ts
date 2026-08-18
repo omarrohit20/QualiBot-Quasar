@@ -1,7 +1,9 @@
 // libs/fixtures/qaFixtures.ts
 // Shared test/expect wrapper for existing UI specs. Adds an automatic accessibility
-// (axe-core) scan on every @smoke-tagged test when A11Y_ARTIFACT_DIR is set — no new
-// tests are created, existing smoke tests just get an extra passive check hooked in.
+// (axe-core) scan on every test that actually runs when A11Y_ARTIFACT_DIR is set — no
+// new tests are created, existing tests just get an extra passive check hooked in.
+// Which tests get scanned is controlled entirely by the invoking command's own
+// --grep/tag selection, not by any tag check here.
 import { test as base, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import * as fs from 'fs';
@@ -23,7 +25,6 @@ export const test = base.extend<{ autoA11yScan: void }>({
       await use();
 
       if (!A11Y_ARTIFACT_DIR) return;
-      if (!testInfo.tags.includes('@smoke')) return;
       if (page.isClosed()) return;
 
       try {

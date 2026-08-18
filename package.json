@@ -9,6 +9,8 @@
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
     "test:report": "playwright show-report",
+    "test:api": "playwright test spec/api",
+    "test:ui-specs": "playwright test spec/ui",
     "zap:start": "docker rm -f zap 2>nul & docker run -d --name zap -p 8080:8080 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8080 -config api.disablekey=true -config api.addrs.addr.name=.* -config api.addrs.addr.regex=true",
     "zap:stop": "docker rm -f zap",
     "zap:status": "curl -s http://127.0.0.1:8080/JSON/core/view/version/ || echo ZAP not reachable",

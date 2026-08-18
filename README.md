@@ -136,6 +136,75 @@ If `.env` is missing or a required token is empty, the agent stops and reports t
 
 (equally: "Run the non-functional checks for PROJ-1234" or "Check accessibility/security/performance for PROJ-1234" — all trigger the same step 8). The story must already have `@smoke`-tagged tests from a prior functional run (steps 1-5) — step 8 re-executes that existing coverage with accessibility/security/performance instrumentation attached, it doesn't author new tests. See [Non-functional checks](#non-functional-checks-accessibility-security-performance) for what it does and where it writes its results.
 
+## Running tests directly (no agent involved)
+
+Everything above describes what the `qa-analyst` agent does on your behalf. All five categories below can also be run straight from the terminal, no agent, no Jira key — useful for local debugging or CI. All are headless, Chrome-only, and respect `ENV`.
+
+Recall the tagging scheme (Section: every automated test carries tier + module + Jira-key tags — `@smoke`/`@sanity`/`@regression`, `@module:<name>`, `@<JIRA-KEY>`). All five commands below can be scoped with `--grep` using any of these, alone or combined (Playwright's `--grep` takes a regex, so combine tags with `.*`, e.g. `"@smoke.*@KAN-4"` to require both).
+
+**API tests only:**
+```bash
+npm run test:api                                    # everything under spec/api
+npx playwright test spec/api --grep @smoke           # just the smoke tier
+npx playwright test spec/api --grep @module:pim       # just one module
+npx playwright test spec/api --grep @KAN-4            # just one story
+npx playwright test spec/api --grep "@smoke.*@KAN-4"  # one story's smoke tests only
+```
+
+**UI tests only:**
+```bash
+npm run test:ui-specs                                # everything under spec/ui
+npx playwright test spec/ui --grep @regression        # just the regression tier
+npx playwright test spec/ui --grep @module:leave       # just one module
+npx playwright test spec/ui --grep @KAN-13             # just one story
+npx playwright test spec/ui --grep "@sanity.*@KAN-13"  # one story's sanity tests only
+```
+(Note: `npm run test:ui`, without `-specs`, is Playwright's own interactive UI mode — a different thing. Use `test:ui-specs`, or the `npx playwright test spec/ui ...` forms above, to run the UI spec files headlessly.)
+
+**Accessibility only** (no external dependency — always works):
+```bash
+npm run test:a11y   # every @smoke UI test, writes to qa-artifacts/accessibility/latest/report.md
+
+# scoped to one story instead of every @smoke test:
+A11Y_ARTIFACT_DIR=qa-artifacts/KAN-4/nonfunctional/run-01/accessibility \
+  npx playwright test --grep "@smoke.*@KAN-4" --project=pim-ui --project=leave-ui --project=admin-ui
+
+# scoped to one module across every story:
+A11Y_ARTIFACT_DIR=qa-artifacts/accessibility/pim-only \
+  npx playwright test --grep "@smoke.*@module:pim" --project=pim-ui --project=leave-ui --project=admin-ui
+```
+
+**Security only** (needs a local OWASP ZAP daemon — see [Setup](#setup) step 5):
+```bash
+npm run zap:start      # once, if not already running — npm run zap:status to check
+npm run test:security  # every @smoke test, API + UI, writes to qa-artifacts/security/latest/
+
+# scoped to one story (run both commands, same SECURITY_ARTIFACT_DIR, so alerts accumulate):
+RUN_SECURITY_SCAN=true SECURITY_ARTIFACT_DIR=qa-artifacts/KAN-4/nonfunctional/run-01/security \
+  npx playwright test --grep "@smoke.*@KAN-4" --project=chromium
+
+RUN_SECURITY_SCAN=true SECURITY_ARTIFACT_DIR=qa-artifacts/KAN-4/nonfunctional/run-01/security \
+  npx playwright test --grep "@smoke.*@KAN-4" --project=pim-ui --project=leave-ui --project=admin-ui
+```
+`test:security` runs both the generic API command (proxied) and the UI command (proxied + accessibility) in sequence, same as the agent's step 8 does.
+
+**Performance only** (needs the `k6` CLI, or Docker as a fallback — see [Setup](#setup) step 5):
+
+Performance isn't tag-scoped the same way — it targets whichever `spec/performance/<module>.k6.js` script you point it at, so scoping is done by picking the script (one per module), not by `--grep`.
+
+```bash
+npm run perf:pull-image    # once, if using the Docker fallback
+
+BASE_URL=https://opensource-demo.orangehrmlive.com \
+AUTH_COOKIE=<value of the 'orangehrm' cookie from playwright/.auth/admin.json — capture it fresh, see note below> \
+K6_SUMMARY_FILE=qa-artifacts/performance/summary.json \
+  k6 run --vus 1 --iterations 5 spec/performance/<module>.k6.js
+
+# then turn the summary into a readable report:
+node scripts/generate-perf-report.js qa-artifacts/performance/summary.json qa-artifacts/performance 1 5
+```
+`<module>.k6.js` is one of the existing files under `spec/performance/` (e.g. `pim.k6.js`) — module-named, not tied to a Jira key; see [Non-functional checks](#non-functional-checks-accessibility-security-performance). **Capture `AUTH_COOKIE` immediately before running** — re-run `npx playwright test spec/ui/auth.setup.ts` first if there's any chance the session was invalidated by a later login on the shared demo. A stale cookie causing every request to fail identically is the most common false "performance failure," not a real regression.
+
 ## Artifacts
 
 Everything the agent produces for Epic/Story `<KEY>` is saved under `qa-artifacts/<KEY>/` (checked into git so it's shareable), organized **per run** — every invocation against a key gets its own numbered, immutable folder:
@@ -229,15 +298,31 @@ Every automated run — API and UI, on every platform — executes on Chrome onl
 
 All three checks reuse the existing `@smoke`-tagged functional tests — **none of them add a separate test file or test case.**
 
-**Accessibility (axe-core).** [libs/fixtures/qaFixtures.ts](libs/fixtures/qaFixtures.ts) wraps Playwright's `test`/`expect` with an auto-fixture that scans every `@smoke`-tagged UI test's final page state with [`@axe-core/playwright`](https://github.com/dequelabs/axe-core-npm) when `A11Y_ARTIFACT_DIR` is set, writing one JSON file per test. Every spec under `spec/ui/**` already imports `test`/`expect` from this fixture instead of `@playwright/test` directly, so any new `@smoke` UI test is covered automatically. The aggregation in [libs/utils/a11yReport.ts](libs/utils/a11yReport.ts) runs in `global-teardown.ts` to produce `accessibility/report.md` (violation counts by impact, plus per-test detail).
+**Accessibility (axe-core).** [libs/fixtures/qaFixtures.ts](libs/fixtures/qaFixtures.ts) wraps Playwright's `test`/`expect` with an auto-fixture that scans every UI test's final page state with [`@axe-core/playwright`](https://github.com/dequelabs/axe-core-npm) when `A11Y_ARTIFACT_DIR` is set, writing one JSON file per test. The fixture itself has no `@smoke` (or any other) tag check — which tests are actually scanned is decided by whatever `--grep`/tag filter the invoking command used, since only the tests that command selects run at all. Every spec under `spec/ui/**` already imports `test`/`expect` from this fixture instead of `@playwright/test` directly, so any UI test the command runs is covered automatically. The aggregation in [libs/utils/a11yReport.ts](libs/utils/a11yReport.ts) runs in `global-teardown.ts` to produce `accessibility/report.md` (violation counts by impact, plus per-test detail). See [How the accessibility scan works, code-wise](#how-the-accessibility-scan-works-code-wise) below for the exact mechanics.
 
 **Security (OWASP ZAP).** [playwright.config.ts](playwright.config.ts) routes traffic from all four projects — the API `chromium` project and the three UI projects — through a local [OWASP ZAP](https://www.zaproxy.org/) daemon when `RUN_SECURITY_SCAN=true` (Playwright's `use.proxy` option is honored by both the browser context and the `request`/`APIRequestContext` fixture, so this covers API and UI traffic alike). ZAP passively analyzes that traffic as the same `@smoke` tests run — no active/intrusive scanning against the shared demo environment. [libs/utils/zapScan.ts](libs/utils/zapScan.ts) + `global-teardown.ts` wait for ZAP's passive-scan queue to drain, pull alerts for the app's `baseURL` via the ZAP REST API, and write `security/zap-alerts.json` + `security/report.md`. **The agent starts ZAP itself if it isn't already running** (`npm run zap:start`) before concluding the check is unreachable — only genuinely skipping (and saying so plainly) if Docker itself isn't usable.
 
-**Performance (k6), single user / 5 iterations only.** [spec/performance/_template.k6.js](spec/performance/_template.k6.js) is the starting point for a per-Epic/Story k6 script, hard-set to `vus: 1, iterations: 5` — a latency/error-rate smoke check, not a load or stress test, and the agent never scales those numbers up for this workflow. The agent copies the template to `spec/performance/<module>-<KEY>.k6.js` (a durable repo asset, reused across step 8 invocations, not regenerated each time) and points it at the same endpoint(s) already covered by that story's `Type: API` `@smoke` cases, resolves auth from the session cookie in `playwright/.auth/admin.json`, and runs it with the `k6` CLI (or a Docker fallback using `K6_DOCKER_IMAGE` if `k6` isn't installed): `k6 run --vus 1 --iterations 5 spec/performance/<module>-<KEY>.k6.js`. [scripts/generate-perf-report.js](scripts/generate-perf-report.js) turns the resulting `summary.json` into `performance/report.md` (request count, response-time percentiles, failed-request rate, threshold pass/fail).
+**Performance (k6), single user / 5 iterations only.** [spec/performance/_template.k6.js](spec/performance/_template.k6.js) is the starting point for a k6 script, hard-set to `vus: 1, iterations: 5` — a latency/error-rate smoke check, not a load or stress test, and the agent never scales those numbers up for this workflow. Scripts are named after their **module**, never a Jira key — `spec/performance/<module>.k6.js` (e.g. `spec/performance/pim.k6.js`) — and are shared across every story touching that module: the agent checks for an existing script for the module first and extends it (new `check()` block, commented with the Jira key that added it) rather than generating a per-story duplicate; only copies the template if no script exists yet for that module. It points the script at the same endpoint(s) already covered by that story's `Type: API` `@smoke` cases, resolves auth from a **freshly re-captured** session cookie in `playwright/.auth/admin.json` (re-running `auth.setup.ts` first if the session might have been invalidated by a later login on the shared demo — a stale cookie causing every request to fail identically is the most common false "performance failure"), and runs it with the `k6` CLI (or a Docker fallback using `K6_DOCKER_IMAGE` if `k6` isn't installed): `k6 run --vus 1 --iterations 5 spec/performance/<module>.k6.js`. If the endpoints also need a CSRF token, it's passed as `AUTH_CSRF_TOKEN` (extracted the same way as the session cookie, once confirmed necessary via `network-capture.md` — never guessed). [scripts/generate-perf-report.js](scripts/generate-perf-report.js) turns the resulting `summary.json` into `performance/report.md` (request count, response-time percentiles, failed-request rate, threshold pass/fail).
 
 **Invoking it:** ask for it by name against a story that already has functional coverage — e.g. "Run the qa-analyst non-functional agent for KAN-4" or "check accessibility/security/performance for KAN-13". The agent resolves `qa-artifacts/<KEY>/nonfunctional/latest.md` to figure out the next run number, executes the API and UI `@smoke` commands (scoped to that story via `@<KEY>`) with the accessibility/security env vars set, runs the k6 script, and writes a combined `nonfunctional/run-<M>/report.md` linking the three underlying reports — verified on disk before it's declared done, same discipline as step 7.
 
 **Local setup for these two checks** (Docker + ZAP + k6) is covered in [Setup](#setup) step 5 — do that once per machine before expecting real (non-skipped) accessibility/security/performance results.
+
+### How the accessibility scan works, code-wise
+
+No separate a11y test suite exists — the scan is piggybacked onto the existing `@smoke` tests via an auto-fixture, not a dedicated command. Three files are responsible, in order of execution:
+
+1. **[libs/fixtures/qaFixtures.ts](libs/fixtures/qaFixtures.ts)** — defines an `autoA11yScan` fixture registered with `{ auto: true }`, so it attaches to *every* test with no per-test opt-in required. Its body runs `await use()` first (letting the test execute), then after the test finishes it's a no-op unless both hold:
+   - `A11Y_ARTIFACT_DIR` env var is set — this is the on/off switch for the whole scan
+   - the page is still open (`!page.isClosed()`)
+
+   There is **no tag check inside the fixture** — it does not care whether a test is tagged `@smoke`, `@sanity`, `@regression`, or nothing at all. Which tests get scanned is decided entirely by the invoking command's own `--grep`/tag selection: whatever subset of tests the command actually runs is the subset that gets scanned. Run with `--grep @smoke` and only `@smoke` tests are scanned; run with `--grep @KAN-4` and that story's tests are scanned instead, tag or no tag.
+
+   When the two conditions hold, it runs `new AxeBuilder({ page }).withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze()` against the test's final page state and writes one JSON file per test — `{ test, specFile, url, tags, violations }` — into `A11Y_ARTIFACT_DIR`, named from a slugified test title. A scan failure is caught and only logged (`console.warn`); it never fails the underlying test.
+2. **Every `spec/ui/**` spec file** (e.g. [spec/ui/pim/employee-list.spec.ts](spec/ui/pim/employee-list.spec.ts)) imports `test`/`expect` from `qaFixtures` instead of `@playwright/test` directly — that single import is what wires the fixture into every test in the file, so any test the command selects is scanned with zero test-level code.
+3. **[libs/utils/a11yReport.ts](libs/utils/a11yReport.ts)**'s `generateA11yReport()` is called from `global-teardown.ts` once the entire Playwright run finishes. It reads back every per-test JSON file written in step 1, tallies violations by impact (critical/serious/moderate/minor), and writes the aggregated `accessibility/report.md`.
+
+Which tests get scanned is therefore controlled entirely by the command line's own `--grep`/tag filter plus the `A11Y_ARTIFACT_DIR` env var — there's no tag hardcoded in the fixture and no separate scan-selection config.
 
 **Platform coverage:** wired into all four agent definitions — [.claude/agents/qa-analyst.md](.claude/agents/qa-analyst.md), [.codex/agents/qa-analyst.toml](.codex/agents/qa-analyst.toml), [.cursor/rules/qa-analyst.mdc](.cursor/rules/qa-analyst.mdc), and [.github/agents/qa-analyst.agent.md](.github/agents/qa-analyst.agent.md) all describe step 8 identically. The underlying mechanics (fixtures, config, scripts, templates) are platform-agnostic — driven by env vars and the Playwright/k6 CLIs.
 
