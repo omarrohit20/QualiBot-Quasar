@@ -141,8 +141,8 @@ This is **not part of the 7-step run** — it never triggers automatically. You 
 
 It reuses the *existing* `@smoke` tests (filtered to that story via its `@<KEY>` tag) — no new test files — and writes to its own independently-numbered `qa-artifacts/<KEY>/nonfunctional/run-<M>/` tree:
 - **Accessibility (axe-core)** — automatic scan on every UI test's final page state that the invoking command actually runs (scoped to `@smoke` by the command's own `--grep`, not by any tag check in the fixture — see 4.6.1).
-- **Security (OWASP ZAP)** — passive scan of the same tests' proxied traffic (API and UI).
-- **Performance (k6)** — single-user, 5-iteration smoke check (never a load test) against a **module-named** script (`spec/performance/<module>.k6.js` — e.g. `pim.k6.js`, never named after a Jira key; extended in place as more stories touch that module).
+- **Security (OWASP ZAP)** — passive scan of the same tests' proxied traffic (API and UI); like accessibility, there's no tag check in the security code path itself, only in the command's own `--grep` — see 4.6.2.
+- **Performance (k6)** — single-user, 5-iteration smoke check (never a load test) against a **module-named** script (`spec/performance/<module>.k6.js` — e.g. `pim.k6.js`, never named after a Jira key; extended in place as more stories touch that module). Unlike the two checks above, this one has no runtime tag filter at all — see 4.6.3.
 
 Local one-time setup required for this to actually run instead of skipping: Docker Desktop running, then `npm run zap:start` and `npm run perf:pull-image`. See README's [Setup](README.md#setup) step 5 for exact commands.
 
@@ -159,6 +159,28 @@ No separate a11y test suite exists — the scan is piggybacked onto the existing
 3. **[libs/utils/a11yReport.ts](libs/utils/a11yReport.ts)** — its `generateA11yReport()` function is called from `global-teardown.ts` once the whole Playwright run finishes. It reads back every per-test JSON file written in step 1, tallies violations by impact (critical/serious/moderate/minor), and writes the aggregated `accessibility/report.md`.
 
 So which tests get scanned is controlled entirely by the command's own `--grep`/tag selection plus the `A11Y_ARTIFACT_DIR` env var — not by any tag hardcoded in the fixture.
+
+### 4.6.2 How the security scan actually works, code-wise
+
+Same principle as accessibility — no separate security test suite, and no tag check anywhere in this path. ZAP just passively watches whatever traffic the selected tests generate. Three files are involved:
+
+1. **[playwright.config.ts](playwright.config.ts)** — when `RUN_SECURITY_SCAN==='true'`, builds a `zapProxy` object pointing at the local ZAP daemon (`ZAP_PROXY_URL`, default `http://127.0.0.1:8080`); otherwise `undefined`. This env var is the on/off switch, same role as `A11Y_ARTIFACT_DIR`.
+2. Every Playwright project (`chromium` for API, `pim-ui`/`leave-ui`/`admin-ui` for UI) sets `use.proxy: zapProxy`, so Playwright transparently routes both `APIRequestContext` and browser traffic through ZAP for that project. There's no fixture involved at all here (unlike accessibility's `autoA11yScan`) — whichever tests the command's `--grep` selects (e.g. `--grep @smoke`) is simply the traffic ZAP observes.
+3. **[libs/utils/zapScan.ts](libs/utils/zapScan.ts)**, called from `global-teardown.ts` once the whole run finishes: confirms ZAP is reachable, waits for its passive-scan queue to drain, pulls alerts for the app's `baseURL` via the ZAP REST API, and writes `security/zap-alerts.json` + `security/report.md` (grouped by risk).
+
+Which traffic gets analyzed is therefore controlled entirely by the command's own `--grep`/tag filter plus `RUN_SECURITY_SCAN` — not by any tag hardcoded in the code.
+
+### 4.6.3 How the performance scan actually works, code-wise
+
+Performance is different in kind from the two checks above: **k6 scripts never run through Playwright**, so there's no `--grep`/tag filter at runtime at all. `@smoke` only matters here as a manual, authoring-time convention.
+
+1. **[spec/performance/_template.k6.js](spec/performance/_template.k6.js)** is the copy-from starting point for a new module's script; **[spec/performance/pim.k6.js](spec/performance/pim.k6.js)** is a real one. Both hardcode `export const options = { vus: 1, iterations: 5, thresholds: {...} }` right in the file — a fixed constant in source, not a runtime flag, and never scaled up.
+2. **The endpoints are hardcoded `http.get()`/`check()` calls** inside `export default function()` — e.g. `pim.k6.js` calls `GET /api/v2/pim/employees`, `GET /api/v2/admin/jobTitles`, each commented with the Jira key that added it (`KAN-4: GET /api/v2/pim/employees`). There's no tag lookup or dynamic selection anywhere — a human (or the agent) manually picks endpoints matching that module's `Type: API` `@smoke` test cases and adds a `check()` block for them. "Smoke scope" here is enforced by convention when the script is extended, not verified by any code at run time.
+3. **Auth** comes in via `AUTH_COOKIE`/`AUTH_CSRF_TOKEN` env vars (`__ENV.AUTH_COOKIE`, `__ENV.AUTH_CSRF_TOKEN`) — the one place this touches the rest of the framework, since that cookie is captured from the same `playwright/.auth/admin.json` session `auth-setup` writes for the tagged UI tests.
+4. **`handleSummary(data)`**, defined in every `<module>.k6.js` file, writes k6's full metrics JSON to whatever `K6_SUMMARY_FILE` points at.
+5. **[scripts/generate-perf-report.js](scripts/generate-perf-report.js)** is run manually afterward — there's no `global-teardown.ts` hook for it, since k6 is its own separate CLI process outside Playwright. It parses `http_req_duration`/`http_req_failed`/`checks` from the summary JSON into `performance/report.md`.
+
+So unlike accessibility/security, performance scope isn't code-filtered by any tag — it's whichever endpoints were manually hardcoded into that module's `.k6.js` file, chosen because they matched `@smoke`-tagged test cases when the script was last extended.
 
 ---
 
